@@ -8,6 +8,61 @@ export type GraphNode = {
   instanceCount?: number;
 };
 
+export type OntologyProperty = {
+  name: string;
+  description: string;
+};
+
+export type TopOntologyNode = {
+  id: string;
+  name: string;
+  domain: string;
+  parent_id: string | null;
+  children: string[];
+  definition: string;
+  properties: OntologyProperty[];
+  source_doc: "顶层工艺本体建设方案_v0.2.md" | "顶层工艺本体补充建议.md";
+  status: "stable" | "candidate";
+};
+
+export type SprOntologyNode = {
+  id: string;
+  name: string;
+  layer: "spr-core" | "spr-extension" | "spr-rule" | "spr-data";
+  parent_top_id: string;
+  inheritance_relation: "subclass-of" | "instance-of" | "candidate-subclass-of";
+  definition: string;
+  source_fields: string[];
+  properties: OntologyProperty[];
+  relations: string[];
+  source_doc: "SPR本体更新最终交付文档.md";
+  instanceCount?: number;
+};
+
+export type SprOntologyRelation = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type: GraphEdge["type"] | "subclass-of";
+};
+
+export type TopSprMapping = {
+  id: string;
+  top_id: string;
+  spr_id: string;
+  relation: "subclass-of" | "belongs-to" | "candidate-extension";
+  evidence: string;
+  source_section: string;
+};
+
+export type HierarchyPath = {
+  id: string;
+  top_path: string[];
+  spr_path: string[];
+  mapping_id: string;
+};
+
 export type GraphEdge = {
   id: string;
   source: string;
@@ -82,6 +137,16 @@ export type DemoDataset = {
     distributions: Record<string, Array<{ name: string; value: number }>>;
     conclusions: string[];
   };
+  top_ontology: {
+    root_ids: string[];
+    nodes: Record<string, TopOntologyNode>;
+  };
+  spr_ontology: {
+    nodes: Record<string, SprOntologyNode>;
+    relations: SprOntologyRelation[];
+  };
+  top_spr_mappings: TopSprMapping[];
+  hierarchy_paths: HierarchyPath[];
   ontology: {
     nodes: GraphNode[];
     edges: GraphEdge[];

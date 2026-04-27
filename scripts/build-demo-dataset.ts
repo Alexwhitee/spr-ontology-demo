@@ -3,7 +3,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
 import { parseCurve, summarizeCurve } from "./shared/reasoning";
-import type { DemoDataset, FieldMapping, GraphEdge, GraphNode, ProcessRecord } from "./shared/types";
+import type {
+  DemoDataset,
+  FieldMapping,
+  GraphEdge,
+  GraphNode,
+  HierarchyPath,
+  ProcessRecord,
+  SprOntologyNode,
+  SprOntologyRelation,
+  TopOntologyNode,
+  TopSprMapping
+} from "./shared/types";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PROCESSED_DIR = path.join(ROOT, "data", "processed");
@@ -36,10 +47,19 @@ for (const record of records) {
   }
 }
 
+const topOntology = buildTopOntology();
+const sprOntology = buildSprOntology(records);
+const topSprMappings = buildTopSprMappings();
+const hierarchyPaths = buildHierarchyPaths(topOntology.nodes, sprOntology.nodes, topSprMappings);
+
 const dataset: DemoDataset = {
   generatedAt: new Date().toISOString(),
   summary: buildSummary(mainRecords, ripRecords),
-  ontology: buildOntology(records),
+  top_ontology: topOntology,
+  spr_ontology: sprOntology,
+  top_spr_mappings: topSprMappings,
+  hierarchy_paths: hierarchyPaths,
+  ontology: buildOntology(topOntology.nodes, sprOntology.nodes, sprOntology.relations, topSprMappings),
   fieldMappings: buildFieldMappings(),
   records,
   demoScripts: buildDemoScripts()
@@ -49,6 +69,10 @@ await writeJson(path.join(PROCESSED_DIR, "demo-dataset.json"), dataset);
 await writeJson(path.join(PUBLIC_DATA_DIR, "demo-dataset.json"), dataset);
 await writeJson(path.join(PROCESSED_DIR, "summary.json"), dataset.summary);
 await writeJson(path.join(PROCESSED_DIR, "ontology.graph.json"), dataset.ontology);
+await writeJson(path.join(PROCESSED_DIR, "top-ontology.json"), dataset.top_ontology);
+await writeJson(path.join(PROCESSED_DIR, "spr-ontology.json"), dataset.spr_ontology);
+await writeJson(path.join(PROCESSED_DIR, "top-spr-mappings.json"), dataset.top_spr_mappings);
+await writeJson(path.join(PROCESSED_DIR, "hierarchy-paths.json"), dataset.hierarchy_paths);
 await writeJson(path.join(PROCESSED_DIR, "field-mapping.json"), dataset.fieldMappings);
 await writeJson(path.join(PROCESSED_DIR, "instances.main.json"), mainRecords);
 await writeJson(path.join(PROCESSED_DIR, "instances.riprop.json"), ripRecords);
@@ -144,7 +168,66 @@ function buildSummary(main: ProcessRecord[], rip: ProcessRecord[]): DemoDataset[
   };
 }
 
-function buildOntology(records: ProcessRecord[]): DemoDataset["ontology"] {
+function buildTopOntology(): DemoDataset["top_ontology"] {
+  const sourceTop = "顶层工艺本体建设方案_v0.2.md";
+  const sourceSuggestion = "顶层工艺本体补充建议.md";
+  const rows: Array<Omit<TopOntologyNode, "children">> = [
+    top("domain-foundation", "基础元层", "基础元层", null, "承载实体、事件、可追溯对象等跨工艺稳定抽象。", sourceTop),
+    top("traceable-object", "可追溯对象类", "基础元层", "domain-foundation", "可被记录、追踪和关联到工艺过程的对象。", sourceTop),
+    top("online-process-record", "在线过程记录类", "基础元层", "traceable-object", "从真实在线数据库抽象出的过程记录承载类，用于连接对象、参数、曲线和质量结果。", sourceSuggestion, "candidate"),
+    top("process-data", "过程数据类", "基础元层", "traceable-object", "过程执行中产生的数据对象父类。", sourceSuggestion, "candidate"),
+    top("curve-data-top", "曲线数据类", "基础元层", "process-data", "将长序列曲线作为可引用、可解释的数据对象。", sourceSuggestion, "candidate"),
+
+    top("domain-organization", "组织与职责域", "组织与职责域", null, "表达工厂、产线、工位、职责边界等组织化对象。", sourceTop),
+    top("line-top", "产线类", "组织与职责域", "domain-organization", "工艺对象发生的产线或生产区域。", sourceTop),
+    top("station-top", "工位类", "组织与职责域", "domain-organization", "产线内执行具体工艺任务的工位。", sourceTop),
+
+    top("domain-product", "产品与结构域", "产品与结构域", null, "表达产品、零件、结构特征和连接特征。", sourceTop),
+    top("part-top", "零件类", "产品与结构域", "domain-product", "参与工艺过程的产品零部件。", sourceTop),
+    top("connection-feature", "连接特征类", "产品与结构域", "domain-product", "结构连接位置、连接点或连接特征的上位概念。", sourceTop),
+
+    top("domain-material", "物料域", "物料域", null, "表达材料、基材、连接件等物料对象。", sourceTop),
+    top("substrate-top", "基材类", "物料域", "domain-material", "被连接或被加工的材料对象。", sourceTop),
+    top("connector-top", "连接件类", "物料域", "domain-material", "铆钉、螺栓等实现连接的对象。", sourceTop),
+
+    top("domain-resource", "资源与设备域", "资源与设备域", null, "表达设备、工装夹具、资源能力和执行单元。", sourceTop),
+    top("equipment-top", "设备类", "资源与设备域", "domain-resource", "执行工艺过程的设备对象。", sourceTop),
+    top("tooling-top", "工装夹具类", "资源与设备域", "domain-resource", "支撑工艺执行的夹具、模具或工具对象。", sourceTop),
+
+    top("domain-process", "工艺域", "工艺域", null, "表达程序、参数、工艺窗口和工艺过程结构。", sourceTop),
+    top("program-top", "程序类", "工艺域", "domain-process", "设备执行的工艺程序或程序号。", sourceTop),
+    top("parameter-set-top", "参数集类", "工艺域", "domain-process", "工艺参数集合，用于承载力、行程、阈值等参数。", sourceTop),
+    top("process-window-top", "工艺窗口类", "工艺域", "domain-process", "过程约束、参考曲线、公差窗口等判定边界。", sourceTop),
+    top("envelope-top", "包络线类", "工艺域", "process-window-top", "用于曲线越界判断的参考边界对象。", sourceSuggestion, "candidate"),
+
+    top("domain-quality", "质量域", "质量域", null, "表达检测计划、检测结果、缺陷模式和质量判定。", sourceTop),
+    top("inspection-plan-top", "检测计划类", "质量域", "domain-quality", "定义检测项目、检测方法和检测要求。", sourceTop),
+    top("inspection-result-top", "检测结果类", "质量域", "domain-quality", "记录检测或质量判定输出。", sourceTop),
+    top("defect-mode-top", "缺陷模式类", "质量域", "domain-quality", "表达可识别的缺陷类型。", sourceTop),
+    top("root-cause-top", "根因类", "质量域", "domain-quality", "解释缺陷或异常的原因对象。", sourceTop),
+    top("model-prediction-top", "模型预测结果类", "质量域", "inspection-result-top", "算法或模型输出的预测类别和辅助判断。", sourceSuggestion, "candidate"),
+
+    top("domain-knowledge", "知识与规则域", "知识与规则域", null, "表达规则、知识项和可解释推理依据。", sourceTop),
+    top("rule-top", "规则类", "知识与规则域", "domain-knowledge", "描述可触发的质量判定、诊断或控制规则。", sourceTop),
+
+    top("domain-event", "事件与变更域", "事件与变更域", null, "表达工艺事件、数据事件和工艺变更。", sourceTop),
+    top("process-change-top", "工艺变更类", "事件与变更域", "domain-event", "记录工艺方案、参数或对象关系的变更。", sourceTop),
+
+    top("domain-action", "能力与Action域", "能力与 Action 域", null, "表达面向自动化或 Copilot 的可执行能力。", sourceTop),
+    top("action-top", "Action类", "能力与 Action 域", "domain-action", "封装查询、诊断、更新、解释等可调用能力。", sourceTop)
+  ];
+
+  const nodes = Object.fromEntries(rows.map((item) => [item.id, { ...item, children: [] as string[] }]));
+  for (const node of Object.values(nodes)) {
+    if (node.parent_id) nodes[node.parent_id]?.children.push(node.id);
+  }
+  return {
+    root_ids: Object.values(nodes).filter((node) => node.parent_id === null).map((node) => node.id),
+    nodes
+  };
+}
+
+function buildSprOntology(records: ProcessRecord[]): DemoDataset["spr_ontology"] {
   const countByClass = {
     "SPR过程记录类": records.length,
     "设备类": unique(records.map((record) => record.deviceName)).length,
@@ -153,65 +236,135 @@ function buildOntology(records: ProcessRecord[]): DemoDataset["ontology"] {
     "产线类": unique(records.map((record) => record.lineName)).length
   };
 
+  const nodes = Object.fromEntries(
+    [
+      spr("line", "产线类", "spr-core", "line-top", "SPR 主链路核心类，承载 line_name。", ["line_name"], countByClass["产线类"]),
+      spr("station", "工位类", "spr-core", "station-top", "保持原定义，后续可由设备编码拆分实例。"),
+      spr("device", "设备类", "spr-core", "equipment-top", "承载 device_name / Devicename。", ["device_name", "Devicename"], countByClass["设备类"]),
+      spr("program", "程序类", "spr-core", "program-top", "承载 prog_no / 程序。", ["prog_no", "程序"], countByClass["程序类"]),
+      spr("part", "零件类", "spr-core", "part-top", "SPR 工艺涉及的被连接零件对象。"),
+      spr("material", "材料类", "spr-core", "substrate-top", "承载钢板厚度等材料属性。", ["钢板厚度"]),
+      spr("joint", "SPR连接点类", "spr-core", "connection-feature", "承载 rivet_id 与铆钉计数器，是 SPR 连接特征实例化类。", ["rivet_id", "铆钉计数器"], countByClass["SPR连接点类"]),
+      spr("rivet", "SPR铆钉类", "spr-core", "connector-top", "SPR 专用连接件，承载铆钉长度等属性。", ["铆钉长度"]),
+      spr("die", "铆模类", "spr-core", "tooling-top", "SPR 工装夹具类对象。"),
+      spr("parameter", "工艺参数类", "spr-core", "parameter-set-top", "承载最大力、冲压行程、末端力等实测参数。", ["铆接线最大力", "铆接线冲压行程", "Actual end force"]),
+      spr("inspection-plan", "检测计划类", "spr-core", "inspection-plan-top", "保持原 SPR 检测计划类，用于描述检测要求。"),
+      spr("quality", "质量结果类", "spr-core", "inspection-result-top", "承载 error_rate、pre、故障代码与输出编码。", ["error_rate", "pre", "故障代码", "输出"]),
+      spr("defect", "缺陷类", "spr-core", "defect-mode-top", "承载冲压行程过大、曲线高于/低于包络线等缺陷模式。", ["故障代码"]),
+      spr("root-cause", "根因类", "spr-core", "root-cause-top", "关联缺陷解释和异常诊断的根因对象。"),
+      spr("process-change", "工艺变更类", "spr-core", "process-change-top", "保持原 SPR 工艺变更表达。"),
+      spr("record", "SPR过程记录类", "spr-extension", "online-process-record", "每条数据库记录的统一承载入口。", ["id", "biz_id", "origin_time", "consumer_time"], countByClass["SPR过程记录类"], "candidate-subclass-of"),
+      spr("curve-data", "SPR曲线数据类", "spr-extension", "curve-data-top", "过程记录关联的曲线数据集合。", ["original_data", "calculate_data", "铆接曲线", "包络线"], undefined, "candidate-subclass-of"),
+      spr("original-curve", "原始曲线类", "spr-data", "curve-data-top", "未经处理或缩放前曲线。", ["original_data", "最大力铆接曲线（原始数据）"], undefined, "candidate-subclass-of"),
+      spr("calculated-curve", "计算后曲线类", "spr-data", "curve-data-top", "处理后或保留精度后的曲线。", ["calculate_data"], undefined, "candidate-subclass-of"),
+      spr("riveting-curve", "铆接曲线类", "spr-data", "curve-data-top", "设备导出的实际铆接曲线。", ["铆接曲线"], undefined, "candidate-subclass-of"),
+      spr("envelope", "包络线类", "spr-extension", "envelope-top", "用于判断铆接曲线是否越界的参考曲线。", ["包络线", "包络线最大力"], undefined, "candidate-subclass-of"),
+      spr("curve-feature", "曲线特征类", "spr-data", "process-data", "曲线最大力、刻度、峰值等摘要特征。", ["铆接曲线最大力", "最大力刻度铆接曲线"], undefined, "candidate-subclass-of"),
+      spr("envelope-tolerance", "包络线公差类", "spr-extension", "process-window-top", "包络线警告与故障阈值。", ["包络线公差警告", "包络线公差故障"], undefined, "candidate-subclass-of"),
+      spr("rrc", "RRC参数类", "spr-extension", "parameter-set-top", "RRC 启用状态与偏差指标，含义保守展示。", ["RRC启用", "RRC 铆接曲线偏差"], undefined, "candidate-subclass-of"),
+      spr("pecv2", "PECV2状态类", "spr-extension", "process-data", "PECV2 激活状态，含义保守展示。", ["PECV2 activated"], undefined, "candidate-subclass-of"),
+      spr("end-force", "末端力公差类", "spr-extension", "process-window-top", "末端力上下限与实际末端力。", ["End force tolerance min.", "End force tolerance max.", "Actual end force"], undefined, "candidate-subclass-of"),
+      spr("prediction", "模型预测结果类", "spr-extension", "model-prediction-top", "模型或算法输出的预测类别、误差率。", ["pre", "error_rate"], undefined, "candidate-subclass-of"),
+      spr("rule-high", "Rule-Curve-High", "spr-rule", "rule-top", "铆接曲线高于包络线时触发缺陷解释。"),
+      spr("rule-low", "Rule-Curve-Low", "spr-rule", "rule-top", "铆接曲线低于包络线时触发缺陷解释。"),
+      spr("rule-stroke", "Rule-Press-Stroke-High", "spr-rule", "rule-top", "冲压行程过大时触发缺陷解释。")
+    ].map((item) => [item.id, item])
+  );
+
+  const relations: SprOntologyRelation[] = [
+    relation("line-station", "line", "station", "hasStation", "objectProperty"),
+    relation("station-device", "station", "device", "hasEquipment", "objectProperty"),
+    relation("device-program", "device", "program", "runsProgram", "objectProperty"),
+    relation("program-joint", "program", "joint", "hasJoint", "objectProperty"),
+    relation("joint-parameter", "joint", "parameter", "hasParameter", "objectProperty"),
+    relation("parameter-quality", "parameter", "quality", "hasQualityResult", "objectProperty"),
+    relation("quality-defect", "quality", "defect", "hasDefect", "objectProperty"),
+    relation("defect-root-cause", "defect", "root-cause", "hasRootCause", "objectProperty"),
+    relation("record-line", "record", "line", "recordedAtLine", "objectProperty"),
+    relation("record-device", "record", "device", "recordedByDevice", "objectProperty"),
+    relation("record-program", "record", "program", "recordedWithProgram", "objectProperty"),
+    relation("record-joint", "record", "joint", "recordsJoint", "objectProperty"),
+    relation("record-parameter", "record", "parameter", "hasOnlineParameter", "objectProperty"),
+    relation("record-curve", "record", "curve-data", "hasCurveData", "objectProperty"),
+    relation("record-prediction", "record", "prediction", "hasPredictionResult", "objectProperty"),
+    relation("record-rrc", "record", "rrc", "hasRRCParameter", "objectProperty"),
+    relation("record-pecv2", "record", "pecv2", "hasPECV2State", "objectProperty"),
+    relation("curve-original", "curve-data", "original-curve", "hasOriginalCurve", "objectProperty"),
+    relation("curve-calculated", "curve-data", "calculated-curve", "hasCalculatedCurve", "objectProperty"),
+    relation("curve-riveting", "curve-data", "riveting-curve", "hasRivetingCurve", "objectProperty"),
+    relation("curve-envelope", "curve-data", "envelope", "hasEnvelopeCurve", "objectProperty"),
+    relation("envelope-tolerance-edge", "envelope", "envelope-tolerance", "hasToleranceLimit", "objectProperty"),
+    relation("quality-envelope", "quality", "envelope", "evaluatedByEnvelope", "objectProperty"),
+    relation("rule-high-edge", "rule-high", "defect", "infers", "derivedFrom"),
+    relation("rule-low-edge", "rule-low", "defect", "infers", "derivedFrom"),
+    relation("rule-stroke-edge", "rule-stroke", "defect", "infers", "derivedFrom")
+  ];
+
+  for (const node of Object.values(nodes)) {
+    node.relations = relations.filter((item) => item.source === node.id || item.target === node.id).map((item) => item.id);
+  }
+
+  return { nodes, relations };
+}
+
+function buildTopSprMappings(): TopSprMapping[] {
+  const section = "SPR本体更新最终交付文档.md / 顶层继承关系与数据库字段映射";
+  return [
+    mapping("line-top", "line", "subclass-of", "产线类 → 产线类", section),
+    mapping("station-top", "station", "subclass-of", "工位类 → 工位类", section),
+    mapping("equipment-top", "device", "subclass-of", "设备类 → 设备类", section),
+    mapping("program-top", "program", "subclass-of", "程序类 → 程序类", section),
+    mapping("part-top", "part", "subclass-of", "零件类 → 零件类", section),
+    mapping("substrate-top", "material", "subclass-of", "材料类 → 基材类", section),
+    mapping("connection-feature", "joint", "subclass-of", "SPR连接点类 → 连接特征类", section),
+    mapping("connector-top", "rivet", "subclass-of", "SPR铆钉类 → 连接件类", section),
+    mapping("tooling-top", "die", "subclass-of", "铆模类 → 工装夹具类", section),
+    mapping("parameter-set-top", "parameter", "subclass-of", "工艺参数类 → 参数集类", section),
+    mapping("inspection-plan-top", "inspection-plan", "subclass-of", "检测计划类 → 检测计划类", section),
+    mapping("inspection-result-top", "quality", "subclass-of", "质量结果类 → 检测结果类", section),
+    mapping("defect-mode-top", "defect", "subclass-of", "缺陷类 → 缺陷模式类", section),
+    mapping("root-cause-top", "root-cause", "subclass-of", "根因类 → 根因类", section),
+    mapping("process-change-top", "process-change", "subclass-of", "工艺变更类 → 工艺变更类", section),
+    mapping("online-process-record", "record", "candidate-extension", "SPR过程记录类用于承接每条数据库在线过程记录；补充建议将其抽象为顶层候选类。", "顶层工艺本体补充建议.md / SPR 数据库新增承载层"),
+    mapping("traceable-object", "record", "belongs-to", "保守建模时，SPR过程记录类仍可作为可追溯对象类下的具体承载对象。", "SPR本体更新最终交付文档.md / 保守建模策略"),
+    mapping("curve-data-top", "curve-data", "candidate-extension", "SPR曲线数据类承载 original_data、calculate_data、铆接曲线、包络线。", "顶层工艺本体补充建议.md / 过程数据类与曲线数据类"),
+    mapping("curve-data-top", "original-curve", "candidate-extension", "原始曲线类是曲线数据类下位对象。", "顶层工艺本体补充建议.md / 曲线数据对象化"),
+    mapping("curve-data-top", "calculated-curve", "candidate-extension", "计算后曲线类是曲线数据类下位对象。", "顶层工艺本体补充建议.md / 曲线数据对象化"),
+    mapping("curve-data-top", "riveting-curve", "candidate-extension", "铆接曲线类是曲线数据类下位对象。", "顶层工艺本体补充建议.md / 曲线数据对象化"),
+    mapping("envelope-top", "envelope", "candidate-extension", "包络线类作为工艺窗口/参考曲线候选扩展，用于曲线越界判定。", "顶层工艺本体补充建议.md / 工艺窗口与包络线"),
+    mapping("process-window-top", "envelope-tolerance", "candidate-extension", "包络线公差类表达警告阈值与故障阈值。", "顶层工艺本体补充建议.md / 公差表达扩展"),
+    mapping("parameter-set-top", "rrc", "candidate-extension", "RRC 参数保守归入参数集类。", "SPR本体更新最终交付文档.md / 待确认字段保守建模"),
+    mapping("process-data", "pecv2", "candidate-extension", "PECV2 状态作为过程数据保守展示。", "SPR本体更新最终交付文档.md / 待确认字段保守建模"),
+    mapping("process-window-top", "end-force", "candidate-extension", "末端力上下限归入工艺窗口/公差表达。", "SPR本体更新最终交付文档.md / RIP_ROP 字段映射"),
+    mapping("model-prediction-top", "prediction", "candidate-extension", "pre 与 error_rate 作为模型预测结果保守展示。", "顶层工艺本体补充建议.md / 模型预测结果类"),
+    mapping("rule-top", "rule-high", "belongs-to", "曲线高于包络线规则用于缺陷解释。", "SPR本体更新最终交付文档.md / 规则解释"),
+    mapping("rule-top", "rule-low", "belongs-to", "曲线低于包络线规则用于缺陷解释。", "SPR本体更新最终交付文档.md / 规则解释"),
+    mapping("rule-top", "rule-stroke", "belongs-to", "冲压行程过大规则用于缺陷解释。", "SPR本体更新最终交付文档.md / 规则解释")
+  ];
+}
+
+function buildHierarchyPaths(topNodes: Record<string, TopOntologyNode>, sprNodes: Record<string, SprOntologyNode>, mappings: TopSprMapping[]): HierarchyPath[] {
+  return mappings.map((item) => ({
+    id: `path-${item.id}`,
+    top_path: ancestorPath(item.top_id, topNodes),
+    spr_path: sprNodes[item.spr_id]?.relations.length ? [item.spr_id, ...sprNodes[item.spr_id].relations.slice(0, 4)] : [item.spr_id],
+    mapping_id: item.id
+  }));
+}
+
+function buildOntology(topNodes: Record<string, TopOntologyNode>, sprNodes: Record<string, SprOntologyNode>, relations: SprOntologyRelation[], mappings: TopSprMapping[]): DemoDataset["ontology"] {
   const nodes: GraphNode[] = [
-    node("top-traceable", "可追溯对象类", "class", "top", "顶层工艺本体中的可追溯对象父类。"),
-    node("top-process", "工艺域", "class", "top", "顶层工艺对象与工艺活动集合。"),
-    node("top-quality", "质量域", "class", "top", "质量结果、缺陷和规则归属域。"),
-    node("line", "产线类", "class", "spr-core", "SPR 主链路核心类，承载 line_name。", ["line_name"], countByClass["产线类"]),
-    node("station", "工位类", "class", "spr-core", "保持原定义，后续可由设备编码拆分实例。"),
-    node("device", "设备类", "class", "spr-core", "承载 device_name / Devicename。", ["device_name", "Devicename"], countByClass["设备类"]),
-    node("program", "程序类", "class", "spr-core", "承载 prog_no / 程序。", ["prog_no", "程序"], countByClass["程序类"]),
-    node("joint", "SPR连接点类", "class", "spr-core", "承载 rivet_id 与铆钉计数器。", ["rivet_id", "铆钉计数器"], countByClass["SPR连接点类"]),
-    node("parameter", "工艺参数类", "class", "spr-core", "承载最大力、冲压行程、末端力等实测参数。"),
-    node("quality", "质量结果类", "class", "spr-core", "承载 error_rate、pre、故障代码。", ["error_rate", "pre", "故障代码"]),
-    node("defect", "缺陷类", "class", "spr-core", "承载冲压行程过大、曲线高于/低于包络线等缺陷模式。"),
-    node("record", "SPR过程记录类", "class", "spr-extension", "每条数据库记录的统一承载入口。", ["id", "biz_id", "origin_time", "consumer_time"], countByClass["SPR过程记录类"]),
-    node("curve-data", "SPR曲线数据类", "class", "spr-extension", "过程记录关联的曲线数据集合。", ["original_data", "calculate_data", "铆接曲线", "包络线"]),
-    node("original-curve", "原始曲线类", "class", "spr-extension", "未经处理或缩放前曲线。", ["original_data", "最大力铆接曲线（原始数据）"]),
-    node("calculated-curve", "计算后曲线类", "class", "spr-extension", "处理后或保留精度后的曲线。", ["calculate_data"]),
-    node("riveting-curve", "铆接曲线类", "class", "spr-extension", "设备导出的实际铆接曲线。", ["铆接曲线"]),
-    node("envelope", "包络线类", "class", "spr-extension", "用于判断铆接曲线是否越界的参考曲线。", ["包络线", "包络线最大力"]),
-    node("curve-feature", "曲线特征类", "class", "spr-extension", "曲线最大力、刻度、峰值等摘要特征。"),
-    node("envelope-tolerance", "包络线公差类", "class", "spr-extension", "包络线警告与故障阈值。", ["包络线公差警告", "包络线公差故障"]),
-    node("rrc", "RRC参数类", "class", "spr-extension", "RRC 启用状态与偏差指标。", ["RRC启用", "RRC 铆接曲线偏差"]),
-    node("pecv2", "PECV2状态类", "class", "spr-extension", "PECV2 激活状态。", ["PECV2 activated"]),
-    node("end-force", "末端力公差类", "class", "spr-extension", "末端力上下限与实际末端力。", ["End force tolerance min.", "Actual end force"]),
-    node("prediction", "模型预测结果类", "class", "spr-extension", "模型或算法输出的预测类别、误差率。", ["pre", "error_rate"]),
-    node("rule-high", "Rule-Curve-High", "rule", "reasoning", "铆接曲线高于包络线时触发缺陷解释。"),
-    node("rule-low", "Rule-Curve-Low", "rule", "reasoning", "铆接曲线低于包络线时触发缺陷解释。"),
-    node("rule-stroke", "Rule-Press-Stroke-High", "rule", "reasoning", "冲压行程过大时触发缺陷解释。")
+    ...Object.values(topNodes).map((item) => node(item.id, item.name, "class", "top", item.definition, undefined, countMappedSpr(item.id, mappings))),
+    ...Object.values(sprNodes).map((item) => node(item.id, item.name, item.layer === "spr-rule" ? "rule" : "class", item.layer === "spr-core" ? "spr-core" : item.layer === "spr-rule" ? "reasoning" : "spr-extension", item.definition, item.source_fields, item.instanceCount))
   ];
 
-  const edges: GraphEdge[] = [
-    edge("line-station", "line", "station", "hasStation", "objectProperty"),
-    edge("station-device", "station", "device", "hasEquipment", "objectProperty"),
-    edge("device-program", "device", "program", "runsProgram", "objectProperty"),
-    edge("program-joint", "program", "joint", "hasJoint", "objectProperty"),
-    edge("joint-parameter", "joint", "parameter", "hasParameter", "objectProperty"),
-    edge("parameter-quality", "parameter", "quality", "hasQualityResult", "objectProperty"),
-    edge("quality-defect", "quality", "defect", "hasDefect", "objectProperty"),
-    edge("record-top", "record", "top-traceable", "inherits", "inherits"),
-    edge("record-line", "record", "line", "recordedAtLine", "objectProperty"),
-    edge("record-device", "record", "device", "recordedByDevice", "objectProperty"),
-    edge("record-program", "record", "program", "recordedWithProgram", "objectProperty"),
-    edge("record-joint", "record", "joint", "recordsJoint", "objectProperty"),
-    edge("record-parameter", "record", "parameter", "hasOnlineParameter", "objectProperty"),
-    edge("record-curve", "record", "curve-data", "hasCurveData", "objectProperty"),
-    edge("record-prediction", "record", "prediction", "hasPredictionResult", "objectProperty"),
-    edge("record-rrc", "record", "rrc", "hasRRCParameter", "objectProperty"),
-    edge("record-pecv2", "record", "pecv2", "hasPECV2State", "objectProperty"),
-    edge("curve-original", "curve-data", "original-curve", "hasOriginalCurve", "objectProperty"),
-    edge("curve-calculated", "curve-data", "calculated-curve", "hasCalculatedCurve", "objectProperty"),
-    edge("curve-riveting", "curve-data", "riveting-curve", "hasRivetingCurve", "objectProperty"),
-    edge("curve-envelope", "curve-data", "envelope", "hasEnvelopeCurve", "objectProperty"),
-    edge("envelope-tolerance-edge", "envelope", "envelope-tolerance", "hasToleranceLimit", "objectProperty"),
-    edge("quality-envelope", "quality", "envelope", "evaluatedByEnvelope", "objectProperty"),
-    edge("rule-high-edge", "rule-high", "defect", "infers", "derivedFrom"),
-    edge("rule-low-edge", "rule-low", "defect", "infers", "derivedFrom"),
-    edge("rule-stroke-edge", "rule-stroke", "defect", "infers", "derivedFrom")
-  ];
+  const topEdges = Object.values(topNodes)
+    .filter((item) => item.parent_id)
+    .map((item) => edge(`top-${item.parent_id}-${item.id}`, item.parent_id as string, item.id, "subclass-of", "inherits"));
+  const sprEdges = relations.map((item) => edge(item.id, item.source, item.target, item.label, item.type === "subclass-of" ? "inherits" : item.type));
+  const mappingEdges = mappings.map((item) => edge(`mapping-${item.id}`, item.top_id, item.spr_id, item.relation, "inherits"));
 
-  return { nodes, edges };
+  return { nodes, edges: [...topEdges, ...sprEdges, ...mappingEdges] };
 }
 
 function buildFieldMappings(): FieldMapping[] {
@@ -311,6 +464,84 @@ function buildDemoScripts(): DemoDataset["demoScripts"] {
       { title: "后续扩展", page: "演示脚本", talkingPoint: "后续可导出 RDF/OWL，接入图数据库或工艺 Copilot。" }
     ]
   };
+}
+
+function top(
+  id: string,
+  name: string,
+  domain: string,
+  parent_id: string | null,
+  definition: string,
+  source_doc: TopOntologyNode["source_doc"],
+  status: TopOntologyNode["status"] = "stable"
+): Omit<TopOntologyNode, "children"> {
+  return {
+    id,
+    name,
+    domain,
+    parent_id,
+    definition,
+    properties: [
+      { name: "definition", description: definition },
+      { name: "domain", description: domain }
+    ],
+    source_doc,
+    status
+  };
+}
+
+function spr(
+  id: string,
+  name: string,
+  layer: SprOntologyNode["layer"],
+  parent_top_id: string,
+  definition: string,
+  source_fields: string[] = [],
+  instanceCount?: number,
+  inheritance_relation: SprOntologyNode["inheritance_relation"] = "subclass-of"
+): SprOntologyNode {
+  return {
+    id,
+    name,
+    layer,
+    parent_top_id,
+    inheritance_relation,
+    definition,
+    source_fields,
+    properties: source_fields.map((field) => ({ name: field, description: `来源字段：${field}` })),
+    relations: [],
+    source_doc: "SPR本体更新最终交付文档.md",
+    instanceCount
+  };
+}
+
+function relation(id: string, source: string, target: string, label: string, type: SprOntologyRelation["type"]): SprOntologyRelation {
+  return { id, source, target, label, type };
+}
+
+function mapping(top_id: string, spr_id: string, relationType: TopSprMapping["relation"], evidence: string, source_section: string): TopSprMapping {
+  return {
+    id: `${top_id}-${spr_id}`,
+    top_id,
+    spr_id,
+    relation: relationType,
+    evidence,
+    source_section
+  };
+}
+
+function ancestorPath(id: string, nodes: Record<string, TopOntologyNode>): string[] {
+  const path: string[] = [];
+  let current: TopOntologyNode | undefined = nodes[id];
+  while (current) {
+    path.unshift(current.id);
+    current = current.parent_id ? nodes[current.parent_id] : undefined;
+  }
+  return path;
+}
+
+function countMappedSpr(topId: string, mappings: TopSprMapping[]): number {
+  return mappings.filter((item) => item.top_id === topId).length;
 }
 
 function node(id: string, label: string, type: GraphNode["type"], group: GraphNode["group"], description: string, sourceFields?: string[], instanceCount?: number): GraphNode {

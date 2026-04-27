@@ -15,6 +15,10 @@ export default {
       if (url.pathname === "/api/dataset") return json(dataset, env);
       if (url.pathname === "/api/summary") return json(dataset.summary, env);
       if (url.pathname === "/api/ontology") return json(dataset.ontology, env);
+      if (url.pathname === "/api/top-ontology") return json(dataset.top_ontology, env);
+      if (url.pathname === "/api/spr-ontology") return json(dataset.spr_ontology, env);
+      if (url.pathname === "/api/top-spr-mappings") return json(dataset.top_spr_mappings, env);
+      if (url.pathname === "/api/hierarchy-path") return json(findHierarchyPath(url.searchParams), env);
       if (url.pathname === "/api/field-mapping") return json(dataset.fieldMappings, env);
       if (url.pathname === "/api/demo-script") {
         const mode = url.searchParams.get("mode") ?? "5min";
@@ -56,6 +60,15 @@ function filterInstances(params: URLSearchParams): ProcessRecord[] {
     .filter((record) => !source || record.source === source)
     .filter((record) => !fault || normalizeFault(record.faultCode) === fault)
     .slice(0, Number(params.get("limit") ?? 100));
+}
+
+function findHierarchyPath(params: URLSearchParams) {
+  const topId = params.get("top_id");
+  const sprId = params.get("spr_id");
+  const mapping = dataset.top_spr_mappings.find((item) => (!topId || item.top_id === topId) && (!sprId || item.spr_id === sprId));
+  if (!mapping) return { error: "hierarchy path not found", top_id: topId, spr_id: sprId };
+  const path = dataset.hierarchy_paths.find((item) => item.mapping_id === mapping.id);
+  return { mapping, path };
 }
 
 function buildSubgraph(id: string) {

@@ -5,8 +5,12 @@ import type { GraphEdge, GraphNode } from "../types/demo";
 type OntologyGraphProps = {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  view: "all" | "top" | "core" | "extension" | "reasoning";
+  view?: "all" | "top" | "core" | "extension" | "reasoning";
   selectedId?: string;
+  highlightedIds?: string[];
+  highlightedEdgeIds?: string[];
+  layout?: "cose" | "breadthfirst";
+  className?: string;
   onSelect: (node: GraphNode) => void;
 };
 
@@ -18,7 +22,7 @@ const visibleGroups = {
   reasoning: new Set(["reasoning", "spr-extension", "spr-core"])
 };
 
-export function OntologyGraph({ nodes, edges, view, selectedId, onSelect }: OntologyGraphProps) {
+export function OntologyGraph({ nodes, edges, view = "all", selectedId, highlightedIds = [], highlightedEdgeIds = [], layout = "cose", className = "graph-canvas", onSelect }: OntologyGraphProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const filtered = useMemo(() => {
     const groups = visibleGroups[view];
@@ -61,6 +65,7 @@ export function OntologyGraph({ nodes, edges, view, selectedId, onSelect }: Onto
         { selector: 'node[group = "spr-core"]', style: { "background-color": "#159a75", color: "#ffffff" } },
         { selector: 'node[group = "spr-extension"]', style: { "background-color": "#f28c28", color: "#111827" } },
         { selector: 'node[group = "reasoning"]', style: { "background-color": "#d84c5f", color: "#ffffff", shape: "diamond" } },
+        { selector: 'node[status = "candidate"]', style: { "border-style": "dashed", "border-width": 3, "border-color": "#7c3aed" } },
         {
           selector: "edge",
           style: {
@@ -77,9 +82,14 @@ export function OntologyGraph({ nodes, edges, view, selectedId, onSelect }: Onto
             "text-background-padding": 2
           }
         },
-        { selector: ".selected", style: { "border-width": 5, "border-color": "#121826" } }
+        { selector: ".selected", style: { "border-width": 5, "border-color": "#121826" } },
+        { selector: ".highlighted", style: { "border-width": 5, "border-color": "#f2a000", "background-blacken": -0.12 } },
+        { selector: "edge.highlighted", style: { width: 4, "line-color": "#7c3aed", "target-arrow-color": "#7c3aed", color: "#4c1d95" } },
+        { selector: ".dimmed", style: { opacity: 0.22 } }
       ],
-      layout: { name: "cose", animate: false, padding: 36, nodeRepulsion: 9000, idealEdgeLength: 120 }
+      layout: layout === "breadthfirst"
+        ? { name: "breadthfirst", animate: false, fit: true, padding: 36, spacingFactor: 1.18, directed: true }
+        : { name: "cose", animate: false, fit: true, padding: 36, nodeRepulsion: 9000, idealEdgeLength: 120 }
     });
 
     cy.on("tap", "node", (event) => {
@@ -88,9 +98,18 @@ export function OntologyGraph({ nodes, edges, view, selectedId, onSelect }: Onto
       if (node) onSelect(node);
     });
 
-    if (selectedId) cy.$id(selectedId).addClass("selected");
+    if (highlightedIds.length > 0) {
+      cy.elements().addClass("dimmed");
+      for (const id of highlightedIds) cy.$id(id).removeClass("dimmed").addClass("highlighted");
+      for (const id of highlightedEdgeIds) cy.$id(id).removeClass("dimmed").addClass("highlighted");
+      cy.edges(".highlighted").connectedNodes().removeClass("dimmed").addClass("highlighted");
+    }
+    if (selectedId) cy.$id(selectedId).removeClass("dimmed").addClass("selected");
+    window.setTimeout(() => {
+      if (!cy.destroyed()) cy.fit(undefined, 28);
+    }, 40);
     return () => cy.destroy();
-  }, [filtered, onSelect, selectedId]);
+  }, [filtered, highlightedEdgeIds, highlightedIds, layout, onSelect, selectedId]);
 
-  return <div ref={ref} className="graph-canvas" />;
+  return <div ref={ref} className={className} />;
 }

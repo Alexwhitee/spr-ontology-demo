@@ -12,6 +12,7 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
 }
 
 button,
@@ -100,6 +101,7 @@ button {
 .workspace {
   padding: 22px;
   min-width: 0;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -134,6 +136,328 @@ button {
 .view-stack {
   display: grid;
   gap: 18px;
+}
+
+.overview-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 0.9fr) 160px 170px;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.overview-copy,
+.overview-metrics,
+.overview-chart,
+.overview-actions {
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.overview-copy {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
+.overview-copy strong {
+  font-size: 18px;
+}
+
+.overview-copy span,
+.source-line {
+  color: #687386;
+  line-height: 1.55;
+}
+
+.overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.overview-metrics div {
+  border-left: 3px solid #2447a8;
+  padding-left: 10px;
+}
+
+.overview-metrics strong,
+.overview-metrics span {
+  display: block;
+}
+
+.overview-metrics strong {
+  color: #2447a8;
+  font-size: 26px;
+}
+
+.overview-metrics span {
+  color: #687386;
+  font-size: 12px;
+}
+
+.overview-chart .chart {
+  height: 112px;
+}
+
+.overview-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-actions button {
+  border: 1px solid #d7deea;
+  border-radius: 7px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  color: #344054;
+  text-align: left;
+}
+
+.overview-actions button.active {
+  background: #172033;
+  border-color: #172033;
+  color: #ffffff;
+}
+
+.ontology-page {
+  display: grid;
+  gap: 16px;
+}
+
+.page-intro {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: end;
+  border-bottom: 1px solid #d7deea;
+  padding-bottom: 14px;
+}
+
+.page-intro h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.page-intro p {
+  margin: 0;
+  max-width: 600px;
+  color: #687386;
+  line-height: 1.6;
+}
+
+.ontology-workbench {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.top-workbench {
+  grid-template-columns: 290px minmax(0, 1fr) 340px;
+}
+
+.spr-workbench {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.tree-pane,
+.linkage-panel {
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.ontology-tree {
+  display: grid;
+  gap: 4px;
+  max-height: calc(100vh - 315px);
+  overflow: auto;
+}
+
+.tree-node button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  padding: 7px 8px;
+  color: #344054;
+  text-align: left;
+}
+
+.tree-node button:hover,
+.tree-node button.selected {
+  background: #eef3ff;
+  color: #2447a8;
+}
+
+.tree-node small {
+  color: #7c3aed;
+  font-size: 11px;
+}
+
+.tree-toggle {
+  display: grid;
+  place-items: center;
+}
+
+.tree-children {
+  margin-left: 16px;
+  border-left: 1px solid #dce3ee;
+  padding-left: 8px;
+}
+
+.property-list,
+.evidence-list,
+.mini-records,
+.mini-table,
+.relation-list.compact {
+  display: grid;
+  gap: 8px;
+}
+
+.property-list div,
+.evidence-list div,
+.mini-records div,
+.mini-table div,
+.relation-list.compact div {
+  background: #f8fafc;
+  border: 1px solid #edf1f6;
+  border-radius: 7px;
+  padding: 9px;
+}
+
+.property-list strong,
+.property-list span,
+.evidence-list strong,
+.evidence-list span,
+.mini-records strong,
+.mini-records span,
+.mini-table strong,
+.mini-table span,
+.mini-table em {
+  display: block;
+}
+
+.property-list span,
+.evidence-list span,
+.mini-records span,
+.mini-table span,
+.mini-table em {
+  color: #687386;
+  font-size: 12px;
+  margin-top: 3px;
+  font-style: normal;
+}
+
+.mapping-chips,
+.search-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mapping-chips span,
+.mapping-chips em,
+.search-results button {
+  border: 1px solid #d7deea;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #344054;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d7deea;
+  background: #f8fafc;
+  border-radius: 7px;
+  padding: 0 10px;
+}
+
+.search-box input {
+  border: 0;
+  background: transparent;
+  min-width: 280px;
+  padding: 9px 0;
+  outline: 0;
+}
+
+.breadcrumb-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin: 14px 0;
+}
+
+.breadcrumb-line span,
+.breadcrumb-line strong {
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #eef2f7;
+  color: #344054;
+  font-size: 12px;
+}
+
+.breadcrumb-line strong {
+  background: #172033;
+  color: #ffffff;
+}
+
+.detail-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.linkage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.linkage-graph {
+  height: 500px;
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+}
+
+.path-board {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 16px;
+}
+
+.section-heading h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.path-line.rich button {
+  border: 0;
+  background: #172033;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.path-line.rich .spr-path {
+  background: #f28c28;
+  color: #111827;
 }
 
 .hero-band {
@@ -381,6 +705,23 @@ button {
 .node-badge.reasoning {
   background: #ffe1e5;
   color: #b42338;
+}
+
+.node-badge.candidate,
+.node-badge.spr-data,
+.node-badge.spr-rule {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.node-badge.spr-core {
+  background: #dff6ec;
+  color: #08775a;
+}
+
+.node-badge.spr-extension {
+  background: #fff0dd;
+  color: #9a5308;
 }
 
 .chips {
@@ -758,6 +1099,12 @@ button {
   .metrics-grid,
   .two-column,
   .conclusion-strip,
+  .overview-strip,
+  .top-workbench,
+  .spr-workbench,
+  .detail-tabs,
+  .linkage-grid,
+  .path-board,
   .graph-layout,
   .curves-layout,
   .reasoning-layout,
