@@ -1,0 +1,7 @@
+name = "spr-demo-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-27"
+
+[vars]
+DATA_MODE = "static"
+ALLOWED_ORIGIN = "*"

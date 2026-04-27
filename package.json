@@ -1,0 +1,35 @@
+{
+  "name": "spr-demo-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:build": "tsx scripts/build-demo-dataset.ts",
+    "data:validate": "tsx scripts/validate-demo-data.ts",
+    "test": "vitest run",
+    "dev": "vite --host 0.0.0.0 --config frontend/vite.config.ts",
+    "build": "npm run data:build && npm run data:validate && vite build --config frontend/vite.config.ts && tsc -p backend/tsconfig.json --noEmit",
+    "preview": "vite preview --host 0.0.0.0 --config frontend/vite.config.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "cytoscape": "^3.33.1",
+    "echarts": "^6.0.0",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "vite": "^7.2.7",
+    "xlsx": "^0.18.5",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260421.0",
+    "@types/node": "^25.0.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16",
+    "wrangler": "^4.55.0"
+  }
+}

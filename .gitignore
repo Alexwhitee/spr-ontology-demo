@@ -1,0 +1,10 @@
+node_modules/
+frontend/dist/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+.playwright-mcp/
+scratch/
+output/
+spr-demo-dashboard.png
