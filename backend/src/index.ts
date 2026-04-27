@@ -1,10 +1,9 @@
-import datasetJson from "../../data/processed/demo-dataset.json";
-import curvesJson from "../../data/processed/curves.all.json";
 import { explainRecord } from "./services/reasoning";
 import type { DemoDataset, Env, ProcessRecord } from "./types/demo";
 
-const dataset = datasetJson as unknown as DemoDataset;
-const curves = curvesJson as Record<string, unknown>;
+const DEFAULT_DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json";
+const DEFAULT_CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves";
+let cachedDataset: { value: DemoDataset; expiresAt: number } | null = null;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -12,19 +11,20 @@ export default {
     if (request.method === "OPTIONS") return withCors(null, env, 204);
 
     try {
+      const dataset = await getDataset(env);
       if (url.pathname === "/api/dataset") return json(dataset, env);
       if (url.pathname === "/api/summary") return json(dataset.summary, env);
       if (url.pathname === "/api/ontology") return json(dataset.ontology, env);
       if (url.pathname === "/api/top-ontology") return json(dataset.top_ontology, env);
       if (url.pathname === "/api/spr-ontology") return json(dataset.spr_ontology, env);
       if (url.pathname === "/api/top-spr-mappings") return json(dataset.top_spr_mappings, env);
-      if (url.pathname === "/api/hierarchy-path") return json(findHierarchyPath(url.searchParams), env);
+      if (url.pathname === "/api/hierarchy-path") return json(findHierarchyPath(dataset, url.searchParams), env);
       if (url.pathname === "/api/field-mapping") return json(dataset.fieldMappings, env);
       if (url.pathname === "/api/demo-script") {
         const mode = url.searchParams.get("mode") ?? "5min";
         return json(dataset.demoScripts[mode] ?? dataset.demoScripts["5min"], env);
       }
-      if (url.pathname === "/api/instances") return json(filterInstances(url.searchParams), env);
+      if (url.pathname === "/api/instances") return json(filterInstances(dataset, url.searchParams), env);
       if (url.pathname.startsWith("/api/instances/")) {
         const id = decodeURIComponent(url.pathname.replace("/api/instances/", ""));
         const record = dataset.records.find((item) => item.id === id);
@@ -32,11 +32,12 @@ export default {
       }
       if (url.pathname.startsWith("/api/curves/")) {
         const id = decodeURIComponent(url.pathname.replace("/api/curves/", ""));
-        return curves[id] ? json(curves[id], env) : json({ error: "curves not found" }, env, 404);
+        const curve = await getCurve(id, env);
+        return curve ? json(curve, env) : json({ error: "curves not found" }, env, 404);
       }
       if (url.pathname.startsWith("/api/subgraph/")) {
         const id = decodeURIComponent(url.pathname.replace("/api/subgraph/", ""));
-        return json(buildSubgraph(id), env);
+        return json(buildSubgraph(dataset, id), env);
       }
       if (url.pathname === "/api/reasoning/explain") {
         const body = request.method === "POST" ? await request.json<{ id?: string }>().catch(() => ({ id: undefined })) : { id: undefined };
@@ -51,7 +52,22 @@ export default {
   }
 };
 
-function filterInstances(params: URLSearchParams): ProcessRecord[] {
+async function getDataset(env: Env): Promise<DemoDataset> {
+  if (cachedDataset && cachedDataset.expiresAt > Date.now()) return cachedDataset.value;
+  const response = await fetch(env.DATASET_URL ?? DEFAULT_DATASET_URL);
+  if (!response.ok) throw new Error(`dataset fetch failed: ${response.status}`);
+  const value = await response.json<DemoDataset>();
+  cachedDataset = { value, expiresAt: Date.now() + 60_000 };
+  return value;
+}
+
+async function getCurve(id: string, env: Env): Promise<unknown | null> {
+  const response = await fetch(`${env.CURVE_BASE_URL ?? DEFAULT_CURVE_BASE_URL}/${encodeURIComponent(id)}.json`);
+  if (!response.ok) return null;
+  return response.json();
+}
+
+function filterInstances(dataset: DemoDataset, params: URLSearchParams): ProcessRecord[] {
   const line = params.get("line");
   const fault = params.get("fault");
   const source = params.get("source");
@@ -62,7 +78,7 @@ function filterInstances(params: URLSearchParams): ProcessRecord[] {
     .slice(0, Number(params.get("limit") ?? 100));
 }
 
-function findHierarchyPath(params: URLSearchParams) {
+function findHierarchyPath(dataset: DemoDataset, params: URLSearchParams) {
   const topId = params.get("top_id");
   const sprId = params.get("spr_id");
   const mapping = dataset.top_spr_mappings.find((item) => (!topId || item.top_id === topId) && (!sprId || item.spr_id === sprId));
@@ -71,7 +87,7 @@ function findHierarchyPath(params: URLSearchParams) {
   return { mapping, path };
 }
 
-function buildSubgraph(id: string) {
+function buildSubgraph(dataset: DemoDataset, id: string) {
   const record = dataset.records.find((item) => item.id === id);
   if (!record) return { nodes: [], edges: [] };
   const nodes = [

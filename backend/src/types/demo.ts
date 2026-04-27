@@ -82,4 +82,6 @@ export type DemoDataset = {
 export type Env = {
   ALLOWED_ORIGIN?: string;
   DATA_MODE?: string;
+  DATASET_URL?: string;
+  CURVE_BASE_URL?: string;
 };

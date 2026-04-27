@@ -5,3 +5,5 @@ compatibility_date = "2026-04-27"
 [vars]
 DATA_MODE = "static"
 ALLOWED_ORIGIN = "*"
+DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json"
+CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves"
