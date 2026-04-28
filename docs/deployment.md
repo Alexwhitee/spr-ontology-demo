@@ -47,9 +47,25 @@ VITE_API_BASE_URL=https://spr-demo-api.<your-subdomain>.workers.dev
 [vars]
 DATA_MODE = "static"
 ALLOWED_ORIGIN = "*"
+ADMIN_TOKEN = "<set with wrangler secret>"
 ```
 
 上线后可将 `ALLOWED_ORIGIN` 改为 Pages 域名。
+
+写接口需要设置密钥：
+
+```bash
+npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
+```
+
+## 本体编辑存储
+
+在线本体编辑使用 Worker + D1 + R2：
+
+1. 创建 D1 数据库，并把 `backend/wrangler.toml` 中的 `database_id` 替换成真实 ID。
+2. 创建 R2 bucket，并确认 `bucket_name` 与 `backend/wrangler.toml` 一致。
+3. Worker 首次写入时会自动创建 `ontology_versions` 和 `ontology_current` 表。
+4. 前端“在线编辑”页输入 `ADMIN_TOKEN` 后，可上传 JSON、编辑图谱并保存版本。
 
 ## API
 
@@ -63,3 +79,14 @@ ALLOWED_ORIGIN = "*"
 - `GET /api/subgraph/:id`
 - `POST /api/reasoning/explain`
 - `GET /api/demo-script?mode=5min`
+- `GET /api/ontology/current`
+- `GET /api/ontology/versions`
+- `POST /api/ontology/import`
+- `PATCH /api/ontology/operations`
+- `POST /api/ontology/versions/:id/restore`
+
+写接口需带：
+
+```http
+Authorization: Bearer <ADMIN_TOKEN>
+```

@@ -26,6 +26,7 @@ npm run build
 
 - 首页展示主表 666 条、RIP_ROP 177 条、字段覆盖、扩展类和关系数量。
 - Cytoscape.js 展示顶层本体、SPR 主链路和 v0.3 扩展层。
+- 在线编辑页支持上传规范本体 JSON、图上增删改节点/关系、保存云端版本和导出 JSON。
 - 字段映射表覆盖主数据库 16 字段和 RIP_ROP 42 字段。
 - 实例视图支持按产线和故障类型筛选过程记录。
 - ECharts 展示原始曲线、计算后曲线、铆接曲线和包络线。
@@ -63,4 +64,4 @@ Worker API 部署：
 npx wrangler deploy --config backend/wrangler.toml
 ```
 
-详见 [docs/deployment.md](docs/deployment.md)。
+在线编辑写接口需要先配置 D1、R2 和 `ADMIN_TOKEN`，详见 [docs/deployment.md](docs/deployment.md)。

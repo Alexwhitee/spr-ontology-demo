@@ -1167,6 +1167,125 @@ button {
   color: #ffffff;
 }
 
+.editor-toolbar,
+.button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.editor-toolbar {
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 18px;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.token-box,
+.form-line {
+  display: grid;
+  gap: 6px;
+}
+
+.token-box {
+  min-width: 260px;
+}
+
+.token-box span,
+.form-line span {
+  color: #687386;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.token-box input,
+.form-line input,
+.form-line textarea,
+.form-line select {
+  width: 100%;
+  border: 1px solid #dce3ee;
+  border-radius: 10px;
+  color: #172033;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.form-line textarea {
+  resize: vertical;
+}
+
+.validation-panel {
+  display: grid;
+  gap: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  color: #9a3412;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.validation-panel span {
+  font-size: 13px;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr);
+  gap: 16px;
+}
+
+.editor-inspector {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.editor-panels {
+  margin-top: 16px;
+}
+
+.button-row button,
+.relation-list button,
+.version-list button,
+.section-heading button {
+  border: 0;
+  border-radius: 10px;
+  background: #eef3ff;
+  color: #2447a8;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.button-row .danger {
+  align-items: center;
+  background: #fff1f2;
+  color: #be123c;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.version-list {
+  display: grid;
+  gap: 10px;
+}
+
+.version-list > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.version-list span {
+  color: #687386;
+  font-size: 12px;
+}
+
 .loading,
 .fatal {
   min-height: 100vh;
@@ -1234,6 +1353,10 @@ button {
   .reasoning-layout,
   .instance-layout,
   .rule-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Database, GitBranch, Network, PanelLeftClose, PanelLeftOpen, Route } from "lucide-react";
+import { Boxes, Database, GitBranch, Network, PanelLeftClose, PanelLeftOpen, PencilLine, Route } from "lucide-react";
 import { Chart } from "../components/Chart";
 import { HierarchyLinkageView } from "../features/hierarchy-linkage/HierarchyLinkageView";
+import { OntologyEditorView } from "../features/ontology-editor/OntologyEditorView";
 import { SprOntologyView } from "../features/spr-ontology/SprOntologyView";
 import { TopOntologyView } from "../features/top-ontology/TopOntologyView";
 import { buildAppShellClassName } from "./appLayoutState";
 import { loadDataset } from "../lib/data";
 import type { DemoDataset } from "../types/demo";
 
-type ViewKey = "top" | "spr" | "linkage";
+type ViewKey = "top" | "spr" | "linkage" | "editor";
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Network }> = [
   { key: "top", label: "顶层工艺本体", icon: Network },
   { key: "spr", label: "SPR本体", icon: GitBranch },
-  { key: "linkage", label: "层级联动", icon: Route }
+  { key: "linkage", label: "层级联动", icon: Route },
+  { key: "editor", label: "在线编辑", icon: PencilLine }
 ];
 
 export default function App() {
@@ -77,6 +79,7 @@ export default function App() {
         {activeView === "top" && <TopOntologyView dataset={dataset} />}
         {activeView === "spr" && <SprOntologyView dataset={dataset} />}
         {activeView === "linkage" && <HierarchyLinkageView dataset={dataset} />}
+        {activeView === "editor" && <OntologyEditorView dataset={dataset} />}
       </main>
     </div>
   );
@@ -98,9 +101,9 @@ function TopBar({ dataset }: { dataset: DemoDataset }) {
 
 function OverviewStrip({ dataset, activeView, onNavigate }: { dataset: DemoDataset; activeView: ViewKey; onNavigate: (view: ViewKey) => void }) {
   const faultOption = useMemo(() => ({
-    tooltip: { trigger: "item" },
+    tooltip: { trigger: "item" as const },
     color: ["#2447a8", "#f28c28", "#d84c5f", "#159a75"],
-    series: [{ type: "pie", radius: ["48%", "72%"], center: ["50%", "52%"], data: dataset.summary.distributions.fault, label: { show: false } }]
+    series: [{ type: "pie" as const, radius: ["48%", "72%"], center: ["50%", "52%"], data: dataset.summary.distributions.fault, label: { show: false } }]
   }), [dataset]);
   const metrics = dataset.summary.metrics;
   return (

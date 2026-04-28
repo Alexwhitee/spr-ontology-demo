@@ -7,3 +7,12 @@ DATA_MODE = "static"
 ALLOWED_ORIGIN = "*"
 DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json"
 CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves"
+
+[[d1_databases]]
+binding = "ONTOLOGY_D1"
+database_name = "spr_ontology_versions"
+database_id = "replace-with-cloudflare-d1-database-id"
+
+[[r2_buckets]]
+binding = "ONTOLOGY_BUCKET"
+bucket_name = "spr-ontology-documents"

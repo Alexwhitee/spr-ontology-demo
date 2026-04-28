@@ -74,9 +74,9 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
             "text-valign": "center",
             "text-halign": "center",
             "text-wrap": "wrap",
-            "text-max-width": 88,
-            width: 74,
-            height: 74,
+            "text-max-width": "88",
+            width: "74",
+            height: "74",
             "border-width": 2,
             "border-color": "#ffffff"
           }
@@ -90,7 +90,7 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
           selector: "edge",
           style: {
             label: "data(label)",
-            width: 1.5,
+            width: "1.5",
             "line-color": "#aab4c5",
             "target-arrow-color": "#aab4c5",
             "target-arrow-shape": "triangle",
@@ -99,12 +99,12 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
             color: "#5b6472",
             "text-background-color": "#ffffff",
             "text-background-opacity": 0.86,
-            "text-background-padding": 2
+            "text-background-padding": "2"
           }
         },
         { selector: ".selected", style: { "border-width": 5, "border-color": "#121826" } },
         { selector: ".highlighted", style: { "border-width": 5, "border-color": "#f2a000", "background-blacken": -0.12 } },
-        { selector: "edge.highlighted", style: { width: 4, "line-color": "#7c3aed", "target-arrow-color": "#7c3aed", color: "#4c1d95" } }
+        { selector: "edge.highlighted", style: { width: "4", "line-color": "#7c3aed", "target-arrow-color": "#7c3aed", color: "#4c1d95" } }
       ],
       layout: layout === "breadthfirst"
         ? { name: "breadthfirst", animate: false, fit: true, padding: 36, spacingFactor: 1.18, directed: true }

@@ -11,10 +11,11 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "types": ["node", "vite/client", "@cloudflare/workers-types"],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["frontend/src", "scripts", "tests", "backend/src"]
+  "include": ["frontend/src", "scripts", "tests", "backend/src", "shared"]
 }
