@@ -1,7 +1,7 @@
 import demoDataset from "../data/processed/demo-dataset.json";
 import { describe, expect, it } from "vitest";
 import { createOntologyDocumentFromDataset, type DemoDataset } from "../shared/ontology";
-import { applySelectedNodeDraft, createSelectedNodeDraft, removeSelectedNode } from "../frontend/src/features/ontology-editor/ontologyEditorState";
+import { applySelectedNodeDraft, createSelectedNodeDraft, getEditorGraph, removeSelectedNode } from "../frontend/src/features/ontology-editor/ontologyEditorState";
 
 const dataset = demoDataset as unknown as DemoDataset;
 
@@ -22,5 +22,18 @@ describe("ontology editor state", () => {
     expect(next.spr_ontology.nodes.record).toBeUndefined();
     expect(next.spr_ontology.relations.some((relation) => relation.source === "record" || relation.target === "record")).toBe(false);
     expect(next.top_spr_mappings.some((mapping) => mapping.spr_id === "record")).toBe(false);
+  });
+
+  it("separates top, SPR, and mapping graphs for clearer editing", () => {
+    const document = createOntologyDocumentFromDataset(dataset);
+    const topGraph = getEditorGraph(document, "top");
+    const sprGraph = getEditorGraph(document, "spr");
+    const mappingGraph = getEditorGraph(document, "mapping");
+
+    expect(topGraph.nodes.every((node) => node.group === "top")).toBe(true);
+    expect(topGraph.edges.every((edge) => edge.id.startsWith("top-"))).toBe(true);
+    expect(sprGraph.nodes.every((node) => node.group !== "top")).toBe(true);
+    expect(sprGraph.edges.every((edge) => !edge.id.startsWith("mapping-"))).toBe(true);
+    expect(mappingGraph.edges.every((edge) => edge.id.startsWith("mapping-"))).toBe(true);
   });
 });

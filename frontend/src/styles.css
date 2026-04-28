@@ -1231,10 +1231,43 @@ button {
   font-size: 13px;
 }
 
+.editor-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.editor-mode-tabs button {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid #dce3ee;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #172033;
+  cursor: pointer;
+  padding: 12px;
+}
+
+.editor-mode-tabs button.active {
+  border-color: #2447a8;
+  box-shadow: 0 0 0 3px rgba(36, 71, 168, 0.12);
+}
+
+.editor-mode-tabs span {
+  color: #687386;
+  font-size: 12px;
+}
+
 .editor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr);
   gap: 16px;
+}
+
+.mapping-editor-grid .graph-canvas {
+  min-height: 620px;
 }
 
 .editor-inspector {
@@ -1271,6 +1304,45 @@ button {
 .version-list {
   display: grid;
   gap: 10px;
+}
+
+.mapping-list {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.mapping-list button {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #172033;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.mapping-list button.active {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.mapping-list span {
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mapping-list em {
+  color: #159a75;
+  font-style: normal;
+  font-weight: 700;
+  text-align: right;
 }
 
 .version-list > div {
@@ -1357,6 +1429,10 @@ button {
   }
 
   .editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-mode-tabs {
     grid-template-columns: 1fr;
   }
 

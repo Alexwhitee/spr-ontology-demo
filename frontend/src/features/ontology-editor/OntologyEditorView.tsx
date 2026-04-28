@@ -8,9 +8,16 @@ import {
   loadOntologyVersions,
   restoreOntologyVersion
 } from "../../lib/data";
-import type { DemoDataset, OntologyDocument, SprOntologyLayer, SprOntologyRelation } from "../../types/demo";
-import { applyOntologyOperations, createOntologyDocumentFromDataset, deriveOntologyArtifacts, validateOntologyDocument } from "../../../../shared/ontology";
-import { applySelectedNodeDraft, createSelectedNodeDraft, removeSelectedNode, type SelectedNodeDraft } from "./ontologyEditorState";
+import type { DemoDataset, OntologyDocument, SprOntologyLayer, SprOntologyRelation, TopSprMapping } from "../../types/demo";
+import { applyOntologyOperations, createOntologyDocumentFromDataset, validateOntologyDocument } from "../../../../shared/ontology";
+import {
+  applySelectedNodeDraft,
+  createSelectedNodeDraft,
+  getEditorGraph,
+  removeSelectedNode,
+  type EditorMode,
+  type SelectedNodeDraft
+} from "./ontologyEditorState";
 
 type NewNodeDraft = {
   kind: "top" | "spr";
@@ -36,20 +43,30 @@ const emptyEdge: SprOntologyRelation = {
   type: "objectProperty"
 };
 
+const editorModes: Array<{ key: EditorMode; label: string; description: string }> = [
+  { key: "top", label: "顶层工艺本体", description: "只编辑顶层类树和父子关系" },
+  { key: "spr", label: "SPR 本体", description: "只编辑 SPR 类和内部关系" },
+  { key: "mapping", label: "映射关系", description: "只维护顶层类 ↔ SPR 类" },
+  { key: "overview", label: "全局总览", description: "只读检查完整合图" }
+];
+
 export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
   const fallbackDocument = useMemo(() => createOntologyDocumentFromDataset(dataset), [dataset]);
   const [document, setDocument] = useState<OntologyDocument>(fallbackDocument);
-  const [selectedId, setSelectedId] = useState("record");
-  const [selectedDraft, setSelectedDraft] = useState<SelectedNodeDraft>(() => createSelectedNodeDraft(fallbackDocument, "record"));
-  const [newNode, setNewNode] = useState<NewNodeDraft>({ kind: "spr", id: "", name: "", parentId: "", parentTopId: "online-process-record", layer: "spr-extension" });
+  const [activeMode, setActiveMode] = useState<EditorMode>("top");
+  const [selectedId, setSelectedId] = useState(() => chooseDefaultSelectedId(fallbackDocument, "top"));
+  const [selectedDraft, setSelectedDraft] = useState<SelectedNodeDraft>(() => createSelectedNodeDraft(fallbackDocument, chooseDefaultSelectedId(fallbackDocument, "top")));
+  const [newNode, setNewNode] = useState<NewNodeDraft>({ kind: "top", id: "", name: "", parentId: "", parentTopId: "online-process-record", layer: "spr-extension" });
   const [edgeDraft, setEdgeDraft] = useState<SprOntologyRelation>(emptyEdge);
   const [activeEdgeId, setActiveEdgeId] = useState("");
+  const [mappingDraft, setMappingDraft] = useState<TopSprMapping>(() => firstMappingDraft(fallbackDocument));
+  const [activeMappingId, setActiveMappingId] = useState(fallbackDocument.top_spr_mappings[0]?.id ?? "");
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("spr-ontology-admin-token") ?? "");
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [message, setMessage] = useState("编辑器已载入本地本体，可上传 JSON 或连接 Worker 云端版本。");
   const [errors, setErrors] = useState<string[]>([]);
 
-  const artifacts = useMemo(() => deriveOntologyArtifacts(document), [document]);
+  const editorGraph = useMemo(() => getEditorGraph(document, activeMode), [activeMode, document]);
   const selectedEdges = useMemo(
     () => document.spr_ontology.relations.filter((relation) => relation.source === selectedId || relation.target === selectedId),
     [document.spr_ontology.relations, selectedId]
@@ -59,7 +76,9 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
     loadCurrentOntologyDocument()
       .then((cloudDocument) => {
         setDocument(cloudDocument);
-        setSelectedId(cloudDocument.spr_ontology.nodes.record ? "record" : Object.keys(cloudDocument.spr_ontology.nodes)[0] ?? Object.keys(cloudDocument.top_ontology.nodes)[0]);
+        setSelectedId(chooseDefaultSelectedId(cloudDocument, activeMode));
+        setMappingDraft(firstMappingDraft(cloudDocument));
+        setActiveMappingId(cloudDocument.top_spr_mappings[0]?.id ?? "");
         setMessage("已载入 Worker 当前本体版本。");
       })
       .catch(() => setMessage("未连接 Worker API，当前使用本地静态本体。"));
@@ -67,13 +86,22 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
   }, []);
 
   useEffect(() => {
+    if (activeMode === "mapping") return;
     try {
       setSelectedDraft(createSelectedNodeDraft(document, selectedId));
     } catch {
-      const nextId = Object.keys(document.spr_ontology.nodes)[0] ?? Object.keys(document.top_ontology.nodes)[0];
+      const nextId = chooseDefaultSelectedId(document, activeMode);
       if (nextId) setSelectedId(nextId);
     }
-  }, [document, selectedId]);
+  }, [activeMode, document, selectedId]);
+
+  useEffect(() => {
+    if (activeMode === "top" && !document.top_ontology.nodes[selectedId]) setSelectedId(chooseDefaultSelectedId(document, "top"));
+    if ((activeMode === "spr" || activeMode === "overview") && !document.spr_ontology.nodes[selectedId] && !document.top_ontology.nodes[selectedId]) {
+      setSelectedId(chooseDefaultSelectedId(document, activeMode));
+    }
+    setNewNode((current) => ({ ...current, kind: activeMode === "top" ? "top" : "spr" }));
+  }, [activeMode, document, selectedId]);
 
   useEffect(() => {
     localStorage.setItem("spr-ontology-admin-token", adminToken);
@@ -101,7 +129,9 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
         return;
       }
       setDocument(validation.document);
-      setSelectedId(validation.document.spr_ontology.nodes.record ? "record" : Object.keys(validation.document.spr_ontology.nodes)[0]);
+      setSelectedId(chooseDefaultSelectedId(validation.document, activeMode));
+      setMappingDraft(firstMappingDraft(validation.document));
+      setActiveMappingId(validation.document.top_spr_mappings[0]?.id ?? "");
       setErrors([]);
       setMessage(`已从 ${file.name} 生成可编辑本体。`);
     } catch (error) {
@@ -128,12 +158,13 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
   }
 
   function handleAddNode() {
+    const kind = activeMode === "top" ? "top" : "spr";
     if (!newNode.id.trim() || !newNode.name.trim()) {
       setErrors(["新增节点必须填写 id 和名称。"]);
       return;
     }
     try {
-      const next = applyOntologyOperations(document, [newNode.kind === "top"
+      const next = applyOntologyOperations(document, [kind === "top"
         ? {
             type: "addNode",
             kind: "top",
@@ -165,7 +196,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
               source_doc: "online-editor"
             }
           }]);
-      applyLocal(next, `已新增 ${newNode.kind === "top" ? "顶层" : "SPR"} 节点 ${newNode.id}。`);
+      applyLocal(next, `已新增 ${kind === "top" ? "顶层" : "SPR"} 节点 ${newNode.id}。`);
       setSelectedId(newNode.id.trim());
       setNewNode({ ...newNode, id: "", name: "" });
     } catch (error) {
@@ -196,6 +227,35 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
   function handleDeleteEdge(id: string) {
     try {
       applyLocal(applyOntologyOperations(document, [{ type: "deleteEdge", id }]), `已删除关系 ${id}。`);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : String(error)]);
+    }
+  }
+
+  function handleUpsertMapping() {
+    const mapping = {
+      ...mappingDraft,
+      id: mappingDraft.id.trim() || `${mappingDraft.top_id}-${mappingDraft.spr_id}`,
+      evidence: mappingDraft.evidence.trim() || "在线编辑器维护的映射关系。",
+      source_section: mappingDraft.source_section.trim() || "online-editor"
+    };
+    try {
+      const next = applyOntologyOperations(document, [{ type: "upsertMapping", mapping }]);
+      applyLocal(next, `已保存映射 ${mapping.id}。`);
+      setMappingDraft(mapping);
+      setActiveMappingId(mapping.id);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : String(error)]);
+    }
+  }
+
+  function handleDeleteMapping(id: string) {
+    try {
+      const next = applyOntologyOperations(document, [{ type: "deleteMapping", id }]);
+      applyLocal(next, `已删除映射 ${id}。`);
+      const fallback = next.top_spr_mappings[0] ?? firstMappingDraft(next);
+      setMappingDraft(fallback);
+      setActiveMappingId(fallback.id);
     } catch (error) {
       setErrors([error instanceof Error ? error.message : String(error)]);
     }
@@ -266,6 +326,13 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
     setEdgeDraft(relation);
   }
 
+  function selectMapping(id: string) {
+    const mapping = document.top_spr_mappings.find((item) => item.id === id);
+    if (!mapping) return;
+    setActiveMappingId(id);
+    setMappingDraft(mapping);
+  }
+
   return (
     <section className="ontology-page editor-page">
       <div className="page-intro">
@@ -305,80 +372,167 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
         </div>
       )}
 
-      <div className="editor-grid">
-        <OntologyGraph
-          nodes={artifacts.ontology.nodes}
-          edges={artifacts.ontology.edges}
-          selectedId={selectedId}
-          highlightedEdgeIds={selectedEdges.map((edge) => edge.id)}
-          onSelect={(node) => setSelectedId(node.id)}
-        />
-
-        <aside className="inspector editor-inspector">
-          <div className={`node-badge ${selectedDraft.kind === "top" ? "top" : selectedDraft.layer}`}>{selectedDraft.kind === "top" ? "顶层节点" : selectedDraft.layer}</div>
-          <h2>{selectedDraft.id}</h2>
-          <FormText label="名称" value={selectedDraft.name} onChange={(value) => setSelectedDraft({ ...selectedDraft, name: value })} />
-          <FormTextarea label="定义" value={selectedDraft.definition} onChange={(value) => setSelectedDraft({ ...selectedDraft, definition: value })} />
-          {selectedDraft.kind === "top" ? (
-            <>
-              <FormText label="领域" value={selectedDraft.domain} onChange={(value) => setSelectedDraft({ ...selectedDraft, domain: value })} />
-              <Select label="父节点" value={selectedDraft.parentId} onChange={(value) => setSelectedDraft({ ...selectedDraft, parentId: value })} options={["", ...Object.keys(document.top_ontology.nodes).filter((id) => id !== selectedDraft.id)]} />
-              <Select label="状态" value={selectedDraft.status} onChange={(value) => setSelectedDraft({ ...selectedDraft, status: value as SelectedNodeDraft["status"] })} options={["stable", "candidate"]} />
-            </>
-          ) : (
-            <>
-              <Select label="顶层父类" value={selectedDraft.parentTopId} onChange={(value) => setSelectedDraft({ ...selectedDraft, parentTopId: value })} options={Object.keys(document.top_ontology.nodes)} />
-              <Select label="层级" value={selectedDraft.layer} onChange={(value) => setSelectedDraft({ ...selectedDraft, layer: value as SprOntologyLayer })} options={["spr-core", "spr-extension", "spr-data", "spr-rule"]} />
-            </>
-          )}
-          <div className="button-row">
-            <button type="button" onClick={handleApplyNodeDraft}>应用到本地</button>
-            <button type="button" onClick={handleCommitSelectedDraft}>提交操作</button>
-            <button type="button" className="danger" onClick={handleDeleteNode}><Trash2 size={14} /> 级联删除</button>
-          </div>
-        </aside>
+      <div className="editor-mode-tabs">
+        {editorModes.map((mode) => (
+          <button
+            key={mode.key}
+            type="button"
+            className={activeMode === mode.key ? "active" : ""}
+            onClick={() => {
+              setActiveMode(mode.key);
+              if (mode.key !== "mapping") setSelectedId(chooseDefaultSelectedId(document, mode.key));
+            }}
+          >
+            <strong>{mode.label}</strong>
+            <span>{mode.description}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="detail-tabs editor-panels">
-        <section className="panel">
-          <div className="section-heading">
-            <h3>新增节点</h3>
-            <span>{Object.keys(document.top_ontology.nodes).length + Object.keys(document.spr_ontology.nodes).length}</span>
-          </div>
-          <Select label="类型" value={newNode.kind} onChange={(value) => setNewNode({ ...newNode, kind: value as NewNodeDraft["kind"] })} options={["spr", "top"]} />
-          <FormText label="ID" value={newNode.id} onChange={(value) => setNewNode({ ...newNode, id: value })} />
-          <FormText label="名称" value={newNode.name} onChange={(value) => setNewNode({ ...newNode, name: value })} />
-          {newNode.kind === "top"
-            ? <Select label="顶层父节点" value={newNode.parentId} onChange={(value) => setNewNode({ ...newNode, parentId: value })} options={["", ...Object.keys(document.top_ontology.nodes)]} />
-            : <Select label="顶层父类" value={newNode.parentTopId} onChange={(value) => setNewNode({ ...newNode, parentTopId: value })} options={Object.keys(document.top_ontology.nodes)} />}
-          {newNode.kind === "spr" && <Select label="层级" value={newNode.layer} onChange={(value) => setNewNode({ ...newNode, layer: value as SprOntologyLayer })} options={["spr-core", "spr-extension", "spr-data", "spr-rule"]} />}
-          <button type="button" className="icon-text-button" onClick={handleAddNode}><Plus size={16} /> 新增节点</button>
-        </section>
+      {activeMode === "mapping" ? (
+        <div className="editor-grid mapping-editor-grid">
+          <OntologyGraph
+            nodes={editorGraph.nodes}
+            edges={editorGraph.edges}
+            selectedId={mappingDraft.spr_id}
+            highlightedIds={[mappingDraft.top_id, mappingDraft.spr_id]}
+            highlightedEdgeIds={mappingDraft.id ? [`mapping-${mappingDraft.id}`] : []}
+            onSelect={(node) => {
+              if (document.top_ontology.nodes[node.id]) setMappingDraft({ ...mappingDraft, top_id: node.id });
+              if (document.spr_ontology.nodes[node.id]) setMappingDraft({ ...mappingDraft, spr_id: node.id });
+            }}
+          />
+          <aside className="inspector editor-inspector">
+            <div className="node-badge top">映射编辑</div>
+            <h2>顶层类 ↔ SPR 类</h2>
+            <Select label="编辑已有映射" value={activeMappingId} onChange={selectMapping} options={["", ...document.top_spr_mappings.map((mapping) => mapping.id)]} />
+            <FormText label="映射 ID" value={mappingDraft.id} onChange={(value) => setMappingDraft({ ...mappingDraft, id: value })} />
+            <Select label="顶层类" value={mappingDraft.top_id} onChange={(value) => setMappingDraft({ ...mappingDraft, top_id: value })} options={Object.keys(document.top_ontology.nodes)} />
+            <Select label="SPR 类" value={mappingDraft.spr_id} onChange={(value) => setMappingDraft({ ...mappingDraft, spr_id: value })} options={Object.keys(document.spr_ontology.nodes)} />
+            <Select label="关系类型" value={mappingDraft.relation} onChange={(value) => setMappingDraft({ ...mappingDraft, relation: value as TopSprMapping["relation"] })} options={["subclass-of", "belongs-to", "candidate-extension"]} />
+            <FormTextarea label="证据" value={mappingDraft.evidence} onChange={(value) => setMappingDraft({ ...mappingDraft, evidence: value })} />
+            <FormText label="来源章节" value={mappingDraft.source_section} onChange={(value) => setMappingDraft({ ...mappingDraft, source_section: value })} />
+            <div className="button-row">
+              <button type="button" onClick={handleUpsertMapping}>保存映射</button>
+              {activeMappingId && <button type="button" className="danger" onClick={() => handleDeleteMapping(activeMappingId)}>删除映射</button>}
+            </div>
+          </aside>
+        </div>
+      ) : (
+        <div className="editor-grid">
+          <OntologyGraph
+            nodes={editorGraph.nodes}
+            edges={editorGraph.edges}
+            selectedId={selectedId}
+            highlightedEdgeIds={activeMode === "spr" ? selectedEdges.map((edge) => edge.id) : []}
+            onSelect={(node) => setSelectedId(node.id)}
+          />
 
-        <section className="panel">
-          <div className="section-heading">
-            <h3>关系 CRUD</h3>
-            <span>{document.spr_ontology.relations.length}</span>
-          </div>
-          <Select label="编辑已有关系" value={activeEdgeId} onChange={selectEdge} options={["", ...document.spr_ontology.relations.map((edge) => edge.id)]} />
-          <FormText label="关系 ID" value={edgeDraft.id} onChange={(value) => setEdgeDraft({ ...edgeDraft, id: value })} />
-          <Select label="Source" value={edgeDraft.source} onChange={(value) => setEdgeDraft({ ...edgeDraft, source: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
-          <Select label="Target" value={edgeDraft.target} onChange={(value) => setEdgeDraft({ ...edgeDraft, target: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
-          <FormText label="Label" value={edgeDraft.label} onChange={(value) => setEdgeDraft({ ...edgeDraft, label: value })} />
-          <Select label="Type" value={edgeDraft.type} onChange={(value) => setEdgeDraft({ ...edgeDraft, type: value as SprOntologyRelation["type"] })} options={["objectProperty", "dataProperty", "derivedFrom", "mapsTo", "inherits", "subclass-of"]} />
-          <div className="button-row">
-            <button type="button" onClick={handleAddEdge}>新增关系</button>
-            <button type="button" onClick={handleUpdateEdge}>更新关系</button>
-          </div>
-          <div className="relation-list compact">
-            {selectedEdges.map((edge) => (
-              <div key={edge.id}>
-                {edge.source} → <strong>{edge.label}</strong> → {edge.target}
-                <button type="button" onClick={() => handleDeleteEdge(edge.id)}>删除</button>
+          {activeMode === "overview" ? (
+            <aside className="inspector editor-inspector">
+              <div className="node-badge top">只读总览</div>
+              <h2>完整本体检查图</h2>
+              <p>这里保留顶层工艺本体、SPR 本体和映射关系的合图，只用于检查整体连通性，不在这里编辑。</p>
+              <dl className="detail-grid">
+                <dt>顶层类</dt>
+                <dd>{Object.keys(document.top_ontology.nodes).length}</dd>
+                <dt>SPR 类</dt>
+                <dd>{Object.keys(document.spr_ontology.nodes).length}</dd>
+                <dt>SPR 关系</dt>
+                <dd>{document.spr_ontology.relations.length}</dd>
+                <dt>映射</dt>
+                <dd>{document.top_spr_mappings.length}</dd>
+              </dl>
+            </aside>
+          ) : (
+            <aside className="inspector editor-inspector">
+              <div className={`node-badge ${selectedDraft.kind === "top" ? "top" : selectedDraft.layer}`}>{selectedDraft.kind === "top" ? "顶层节点" : selectedDraft.layer}</div>
+              <h2>{selectedDraft.id}</h2>
+              <FormText label="名称" value={selectedDraft.name} onChange={(value) => setSelectedDraft({ ...selectedDraft, name: value })} />
+              <FormTextarea label="定义" value={selectedDraft.definition} onChange={(value) => setSelectedDraft({ ...selectedDraft, definition: value })} />
+              {selectedDraft.kind === "top" ? (
+                <>
+                  <FormText label="领域" value={selectedDraft.domain} onChange={(value) => setSelectedDraft({ ...selectedDraft, domain: value })} />
+                  <Select label="父节点" value={selectedDraft.parentId} onChange={(value) => setSelectedDraft({ ...selectedDraft, parentId: value })} options={["", ...Object.keys(document.top_ontology.nodes).filter((id) => id !== selectedDraft.id)]} />
+                  <Select label="状态" value={selectedDraft.status} onChange={(value) => setSelectedDraft({ ...selectedDraft, status: value as SelectedNodeDraft["status"] })} options={["stable", "candidate"]} />
+                </>
+              ) : (
+                <>
+                  <Select label="顶层父类" value={selectedDraft.parentTopId} onChange={(value) => setSelectedDraft({ ...selectedDraft, parentTopId: value })} options={Object.keys(document.top_ontology.nodes)} />
+                  <Select label="层级" value={selectedDraft.layer} onChange={(value) => setSelectedDraft({ ...selectedDraft, layer: value as SprOntologyLayer })} options={["spr-core", "spr-extension", "spr-data", "spr-rule"]} />
+                </>
+              )}
+              <div className="button-row">
+                <button type="button" onClick={handleApplyNodeDraft}>应用到本地</button>
+                <button type="button" onClick={handleCommitSelectedDraft}>提交操作</button>
+                <button type="button" className="danger" onClick={handleDeleteNode}><Trash2 size={14} /> 级联删除</button>
               </div>
-            ))}
-          </div>
-        </section>
+            </aside>
+          )}
+        </div>
+      )}
+
+      <div className="detail-tabs editor-panels">
+        {(activeMode === "top" || activeMode === "spr") && (
+          <section className="panel">
+            <div className="section-heading">
+              <h3>{activeMode === "top" ? "新增顶层类" : "新增 SPR 类"}</h3>
+              <span>{activeMode === "top" ? Object.keys(document.top_ontology.nodes).length : Object.keys(document.spr_ontology.nodes).length}</span>
+            </div>
+            <FormText label="ID" value={newNode.id} onChange={(value) => setNewNode({ ...newNode, id: value })} />
+            <FormText label="名称" value={newNode.name} onChange={(value) => setNewNode({ ...newNode, name: value })} />
+            {activeMode === "top"
+              ? <Select label="顶层父节点" value={newNode.parentId} onChange={(value) => setNewNode({ ...newNode, parentId: value })} options={["", ...Object.keys(document.top_ontology.nodes)]} />
+              : <Select label="顶层父类" value={newNode.parentTopId} onChange={(value) => setNewNode({ ...newNode, parentTopId: value })} options={Object.keys(document.top_ontology.nodes)} />}
+            {activeMode === "spr" && <Select label="层级" value={newNode.layer} onChange={(value) => setNewNode({ ...newNode, layer: value as SprOntologyLayer })} options={["spr-core", "spr-extension", "spr-data", "spr-rule"]} />}
+            <button type="button" className="icon-text-button" onClick={handleAddNode}><Plus size={16} /> 新增节点</button>
+          </section>
+        )}
+
+        {activeMode === "spr" && (
+          <section className="panel">
+            <div className="section-heading">
+              <h3>SPR 内部关系</h3>
+              <span>{document.spr_ontology.relations.length}</span>
+            </div>
+            <Select label="编辑已有关系" value={activeEdgeId} onChange={selectEdge} options={["", ...document.spr_ontology.relations.map((edge) => edge.id)]} />
+            <FormText label="关系 ID" value={edgeDraft.id} onChange={(value) => setEdgeDraft({ ...edgeDraft, id: value })} />
+            <Select label="Source" value={edgeDraft.source} onChange={(value) => setEdgeDraft({ ...edgeDraft, source: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
+            <Select label="Target" value={edgeDraft.target} onChange={(value) => setEdgeDraft({ ...edgeDraft, target: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
+            <FormText label="Label" value={edgeDraft.label} onChange={(value) => setEdgeDraft({ ...edgeDraft, label: value })} />
+            <Select label="Type" value={edgeDraft.type} onChange={(value) => setEdgeDraft({ ...edgeDraft, type: value as SprOntologyRelation["type"] })} options={["objectProperty", "dataProperty", "derivedFrom", "mapsTo", "inherits", "subclass-of"]} />
+            <div className="button-row">
+              <button type="button" onClick={handleAddEdge}>新增关系</button>
+              <button type="button" onClick={handleUpdateEdge}>更新关系</button>
+            </div>
+            <div className="relation-list compact">
+              {selectedEdges.map((edge) => (
+                <div key={edge.id}>
+                  {edge.source} → <strong>{edge.label}</strong> → {edge.target}
+                  <button type="button" onClick={() => handleDeleteEdge(edge.id)}>删除</button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeMode === "mapping" && (
+          <section className="panel">
+            <div className="section-heading">
+              <h3>映射清单</h3>
+              <span>{document.top_spr_mappings.length}</span>
+            </div>
+            <div className="mapping-list">
+              {document.top_spr_mappings.map((mapping) => (
+                <button key={mapping.id} type="button" className={activeMappingId === mapping.id ? "active" : ""} onClick={() => selectMapping(mapping.id)}>
+                  <strong>{document.top_ontology.nodes[mapping.top_id]?.name ?? mapping.top_id}</strong>
+                  <span>{mapping.relation}</span>
+                  <em>{document.spr_ontology.nodes[mapping.spr_id]?.name ?? mapping.spr_id}</em>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="panel">
           <div className="section-heading">
@@ -399,6 +553,23 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
       </div>
     </section>
   );
+}
+
+function chooseDefaultSelectedId(document: OntologyDocument, mode: EditorMode): string {
+  if (mode === "top") return document.top_ontology.nodes["domain-process"] ? "domain-process" : Object.keys(document.top_ontology.nodes)[0] ?? "";
+  if (mode === "spr") return document.spr_ontology.nodes.record ? "record" : Object.keys(document.spr_ontology.nodes)[0] ?? "";
+  return document.spr_ontology.nodes.record ? "record" : Object.keys(document.spr_ontology.nodes)[0] ?? Object.keys(document.top_ontology.nodes)[0] ?? "";
+}
+
+function firstMappingDraft(document: OntologyDocument): TopSprMapping {
+  return document.top_spr_mappings[0] ?? {
+    id: "",
+    top_id: Object.keys(document.top_ontology.nodes)[0] ?? "",
+    spr_id: Object.keys(document.spr_ontology.nodes)[0] ?? "",
+    relation: "subclass-of",
+    evidence: "",
+    source_section: "online-editor"
+  };
 }
 
 function FormText({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {

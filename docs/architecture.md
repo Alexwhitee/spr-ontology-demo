@@ -36,6 +36,15 @@ flowchart LR
 5. 前端默认静态加载数据；设置 `VITE_DATA_MODE=api` 后可切换 Worker API。
 6. Worker 如发现云端当前本体版本，会用其覆盖 `top_ontology`、`spr_ontology`、`top_spr_mappings`、`fieldMappings`，并重新派生图谱与层级路径。
 
+## 在线编辑界面
+
+编辑页按语义边界拆分为四个模式：
+
+- 顶层工艺本体：只展示并编辑顶层类树。
+- SPR 本体：只展示并编辑 SPR 类与 SPR 内部关系。
+- 映射关系：单独维护 `top_spr_mappings`，即顶层类到 SPR 类的对应关系。
+- 全局总览：保留完整合图，只用于检查连通性，不作为默认编辑入口。
+
 ## 关键设计
 
 - `SPR过程记录类` 是中心对象。
