@@ -28,7 +28,12 @@ button {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: 248px minmax(0, 1fr);
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -38,17 +43,29 @@ button {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  min-width: 0;
+  overflow: hidden;
+  transition: padding 180ms ease;
+}
+
+.sidebar-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .brand strong {
   display: block;
   font-size: 18px;
+  white-space: nowrap;
 }
 
 .brand span,
@@ -57,6 +74,55 @@ button {
   color: #aab4c5;
   font-size: 12px;
   margin-top: 3px;
+}
+
+.sidebar-toggle {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  flex: 0 0 auto;
+}
+
+.sidebar-toggle:hover {
+  background: #22304a;
+}
+
+.sidebar-collapsed .sidebar {
+  padding-inline: 12px;
+  align-items: center;
+}
+
+.sidebar-collapsed .sidebar-topline {
+  justify-content: center;
+}
+
+.sidebar-collapsed .brand div,
+.sidebar-collapsed .nav span,
+.sidebar-collapsed .sidebar-note span {
+  display: none;
+}
+
+.sidebar-collapsed .brand,
+.sidebar-collapsed .sidebar-note,
+.sidebar-collapsed .nav button {
+  justify-content: center;
+}
+
+.sidebar-collapsed .nav {
+  width: 100%;
+}
+
+.sidebar-collapsed .nav button {
+  padding-inline: 10px;
+}
+
+.sidebar-collapsed .sidebar-note {
+  width: 100%;
 }
 
 .nav {
@@ -248,6 +314,32 @@ button {
   line-height: 1.6;
 }
 
+.page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.icon-text-button {
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  min-height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.icon-text-button:hover {
+  border-color: #2447a8;
+  color: #2447a8;
+}
+
 .ontology-workbench {
   display: grid;
   gap: 16px;
@@ -260,6 +352,21 @@ button {
 
 .spr-workbench {
   grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.top-workbench.graph-expanded,
+.spr-workbench.graph-expanded {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.graph-expanded .tree-pane,
+.graph-expanded .inspector {
+  display: none;
+}
+
+.graph-expanded .graph-canvas {
+  height: calc(100vh - 160px);
+  min-height: 720px;
 }
 
 .tree-pane,
@@ -1071,7 +1178,8 @@ button {
 }
 
 @media (max-width: 1100px) {
-  .app-shell {
+  .app-shell,
+  .app-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
   }
 
@@ -1080,11 +1188,21 @@ button {
     top: 0;
     z-index: 10;
     padding: 12px;
+    align-items: stretch;
   }
 
-  .brand,
   .sidebar-note {
     display: none;
+  }
+
+  .sidebar-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand strong {
+    font-size: 17px;
   }
 
   .nav {
@@ -1094,6 +1212,12 @@ button {
 
   .nav button {
     white-space: nowrap;
+  }
+
+  .page-intro,
+  .page-actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .metrics-grid,
@@ -1127,5 +1251,9 @@ button {
 
   .graph-canvas {
     height: 560px;
+  }
+
+  .graph-expanded .graph-canvas {
+    min-height: 620px;
   }
 }

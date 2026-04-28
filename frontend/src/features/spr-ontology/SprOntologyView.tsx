@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Maximize2, Minimize2, Search } from "lucide-react";
 import { OntologyGraph } from "../../components/OntologyGraph";
+import { buildGraphWorkbenchClassName } from "../../app/appLayoutState";
 import type { DemoDataset, FieldMapping, GraphEdge, GraphNode, ProcessRecord, SprOntologyNode } from "../../types/demo";
 
 type LayerFilter = "all" | SprOntologyNode["layer"];
@@ -9,6 +10,7 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
   const [query, setQuery] = useState("");
   const [layer, setLayer] = useState<LayerFilter>("all");
   const [selectedId, setSelectedId] = useState("record");
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const graph = useMemo(() => sprGraph(dataset, layer), [dataset, layer]);
   const selected = dataset.spr_ontology.nodes[selectedId] ?? dataset.spr_ontology.nodes.record;
   const parentTop = dataset.top_ontology.nodes[selected.parent_top_id];
@@ -29,7 +31,13 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
           <span className="eyebrow">SPR Ontology</span>
           <h2>SPR 本体显式继承顶层工艺类</h2>
         </div>
-        <p>核心主链路、在线过程记录、曲线包络线、预测结果与规则解释都具有明确的 `parent_top_id`。</p>
+        <div className="page-actions">
+          <p>核心主链路、在线过程记录、曲线包络线、预测结果与规则解释都具有明确的 `parent_top_id`。</p>
+          <button type="button" className="icon-text-button" onClick={() => setIsGraphExpanded((value) => !value)}>
+            {isGraphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <span>{isGraphExpanded ? "退出大图" : "展开图谱"}</span>
+          </button>
+        </div>
       </div>
       <div className="toolbar">
         <label className="search-box">
@@ -49,7 +57,7 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
           ))}
         </div>
       )}
-      <div className="ontology-workbench spr-workbench">
+      <div className={buildGraphWorkbenchClassName("spr-workbench", isGraphExpanded)}>
         <OntologyGraph
           nodes={graph.nodes}
           edges={graph.edges}

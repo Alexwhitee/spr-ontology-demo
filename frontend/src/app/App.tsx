@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Database, GitBranch, Network, Route } from "lucide-react";
+import { Boxes, Database, GitBranch, Network, PanelLeftClose, PanelLeftOpen, Route } from "lucide-react";
 import { Chart } from "../components/Chart";
 import { HierarchyLinkageView } from "../features/hierarchy-linkage/HierarchyLinkageView";
 import { SprOntologyView } from "../features/spr-ontology/SprOntologyView";
 import { TopOntologyView } from "../features/top-ontology/TopOntologyView";
+import { buildAppShellClassName } from "./appLayoutState";
 import { loadDataset } from "../lib/data";
 import type { DemoDataset } from "../types/demo";
 
@@ -19,6 +20,7 @@ export default function App() {
   const [dataset, setDataset] = useState<DemoDataset | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("linkage");
   const [error, setError] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     loadDataset()
@@ -30,20 +32,31 @@ export default function App() {
   if (!dataset) return <div className="loading">SPR Demo 数据加载中</div>;
 
   return (
-    <div className="app-shell">
+    <div className={buildAppShellClassName(isSidebarCollapsed)}>
       <aside className="sidebar">
-        <div className="brand">
-          <Boxes size={30} />
-          <div>
-            <strong>SPR 本体 Demo</strong>
-            <span>顶层工艺本体 × SPR 细粒度工艺</span>
+        <div className="sidebar-topline">
+          <div className="brand" title="SPR 本体 Demo">
+            <Boxes size={30} />
+            <div>
+              <strong>SPR 本体 Demo</strong>
+              <span>顶层工艺本体 × SPR 细粒度工艺</span>
+            </div>
           </div>
+          <button
+            className="sidebar-toggle"
+            type="button"
+            title={isSidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+            aria-label={isSidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+            onClick={() => setIsSidebarCollapsed((value) => !value)}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
         <nav className="nav">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.key} className={activeView === item.key ? "active" : ""} onClick={() => setActiveView(item.key)}>
+              <button key={item.key} className={activeView === item.key ? "active" : ""} title={item.label} onClick={() => setActiveView(item.key)}>
                 <Icon size={18} />
                 <span>{item.label}</span>
               </button>

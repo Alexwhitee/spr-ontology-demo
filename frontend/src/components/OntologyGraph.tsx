@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import cytoscape from "cytoscape";
 import type { GraphEdge, GraphNode } from "../types/demo";
+import { buildSelectionClassPlan } from "./ontologyGraphState";
 
 type OntologyGraphProps = {
   nodes: GraphNode[];
@@ -24,6 +25,8 @@ const visibleGroups = {
 
 export function OntologyGraph({ nodes, edges, view = "all", selectedId, highlightedIds = [], highlightedEdgeIds = [], layout = "cose", className = "graph-canvas", onSelect }: OntologyGraphProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const cyRef = useRef<cytoscape.Core | null>(null);
+  const onSelectRef = useRef(onSelect);
   const filtered = useMemo(() => {
     const groups = visibleGroups[view];
     const visibleNodes = nodes.filter((node) => groups.has(node.group));
@@ -33,6 +36,23 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
       edges: edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target))
     };
   }, [edges, nodes, view]);
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      const cy = cyRef.current;
+      if (!cy || cy.destroyed()) return;
+      cy.resize();
+      cy.fit(undefined, 28);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -84,32 +104,38 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
         },
         { selector: ".selected", style: { "border-width": 5, "border-color": "#121826" } },
         { selector: ".highlighted", style: { "border-width": 5, "border-color": "#f2a000", "background-blacken": -0.12 } },
-        { selector: "edge.highlighted", style: { width: 4, "line-color": "#7c3aed", "target-arrow-color": "#7c3aed", color: "#4c1d95" } },
-        { selector: ".dimmed", style: { opacity: 0.22 } }
+        { selector: "edge.highlighted", style: { width: 4, "line-color": "#7c3aed", "target-arrow-color": "#7c3aed", color: "#4c1d95" } }
       ],
       layout: layout === "breadthfirst"
         ? { name: "breadthfirst", animate: false, fit: true, padding: 36, spacingFactor: 1.18, directed: true }
         : { name: "cose", animate: false, fit: true, padding: 36, nodeRepulsion: 9000, idealEdgeLength: 120 }
     });
+    cyRef.current = cy;
 
     cy.on("tap", "node", (event) => {
-      const id = event.target.id();
-      const node = filtered.nodes.find((item) => item.id === id);
-      if (node) onSelect(node);
+      onSelectRef.current(event.target.data() as GraphNode);
     });
 
-    if (highlightedIds.length > 0) {
-      cy.elements().addClass("dimmed");
-      for (const id of highlightedIds) cy.$id(id).removeClass("dimmed").addClass("highlighted");
-      for (const id of highlightedEdgeIds) cy.$id(id).removeClass("dimmed").addClass("highlighted");
-      cy.edges(".highlighted").connectedNodes().removeClass("dimmed").addClass("highlighted");
-    }
-    if (selectedId) cy.$id(selectedId).removeClass("dimmed").addClass("selected");
     window.setTimeout(() => {
       if (!cy.destroyed()) cy.fit(undefined, 28);
     }, 40);
-    return () => cy.destroy();
-  }, [filtered, highlightedEdgeIds, highlightedIds, layout, onSelect, selectedId]);
+    return () => {
+      cyRef.current = null;
+      cy.destroy();
+    };
+  }, [filtered, layout]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+
+    const edgeConnections = Object.fromEntries(filtered.edges.map((edge) => [edge.id, [edge.source, edge.target]]));
+    const plan = buildSelectionClassPlan({ selectedId, highlightedIds, highlightedEdgeIds, edgeConnections });
+
+    cy.elements().removeClass("selected highlighted dimmed");
+    for (const id of plan.highlightedIds) cy.$id(id).addClass("highlighted");
+    for (const id of plan.selectedIds) cy.$id(id).addClass("selected");
+  }, [filtered.edges, highlightedEdgeIds, highlightedIds, selectedId]);
 
   return <div ref={ref} className={className} />;
 }

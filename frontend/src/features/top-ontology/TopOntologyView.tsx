@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { OntologyGraph } from "../../components/OntologyGraph";
+import { buildGraphWorkbenchClassName } from "../../app/appLayoutState";
 import type { DemoDataset, GraphEdge, GraphNode, TopOntologyNode } from "../../types/demo";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 export function TopOntologyView({ dataset }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(dataset.top_ontology.root_ids));
   const [selectedId, setSelectedId] = useState("domain-process");
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const selected = dataset.top_ontology.nodes[selectedId] ?? dataset.top_ontology.nodes[dataset.top_ontology.root_ids[0]];
   const mappedSpr = dataset.top_spr_mappings
     .filter((mapping) => mapping.top_id === selected.id)
@@ -34,9 +36,15 @@ export function TopOntologyView({ dataset }: Props) {
           <span className="eyebrow">Top-Level Ontology</span>
           <h2>顶层工艺本体是 SPR 的抽象承载层</h2>
         </div>
-        <p>依据《顶层工艺本体建设方案_v0.2.md》和《顶层工艺本体补充建议.md》，稳定类与候选补充类分层展示。</p>
+        <div className="page-actions">
+          <p>依据《顶层工艺本体建设方案_v0.2.md》和《顶层工艺本体补充建议.md》，稳定类与候选补充类分层展示。</p>
+          <button type="button" className="icon-text-button" onClick={() => setIsGraphExpanded((value) => !value)}>
+            {isGraphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <span>{isGraphExpanded ? "退出大图" : "展开图谱"}</span>
+          </button>
+        </div>
       </div>
-      <div className="ontology-workbench top-workbench">
+      <div className={buildGraphWorkbenchClassName("top-workbench", isGraphExpanded)}>
         <aside className="tree-pane">
           <div className="section-heading">
             <h3>分类体系</h3>
