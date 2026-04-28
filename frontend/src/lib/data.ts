@@ -1,4 +1,5 @@
 import type { DemoDataset, OntologyDocument, OntologyOperation, ProcessRecord } from "../types/demo";
+import { validateOntologyDocument } from "../../../shared/ontology";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const DATA_MODE = import.meta.env.VITE_DATA_MODE as string | undefined;
@@ -27,7 +28,7 @@ export async function loadRecordCurves(record: ProcessRecord): Promise<ProcessRe
 export async function loadCurrentOntologyDocument(): Promise<OntologyDocument> {
   const response = await fetch(apiUrl("/api/ontology/current"));
   if (!response.ok) throw new Error(`无法加载云端本体：${response.status}`);
-  return response.json() as Promise<OntologyDocument>;
+  return parseOntologyDocument(await response.json());
 }
 
 export async function importOntologyDocument(document: OntologyDocument, token: string, message = "Import ontology JSON"): Promise<{ versionId: string; document: OntologyDocument }> {
@@ -75,7 +76,19 @@ function authHeaders(token: string): HeadersInit {
 }
 
 async function readOntologyWriteResponse(response: Response): Promise<{ versionId: string; document: OntologyDocument }> {
-  const body = await response.json().catch(() => ({})) as { details?: string[]; error?: string };
+  const body = await response.json().catch(() => ({})) as { details?: string[]; error?: string; versionId?: string; document?: unknown };
   if (!response.ok) throw new Error(body?.details?.join?.("\n") ?? body?.error ?? `本体写入失败：${response.status}`);
-  return body as { versionId: string; document: OntologyDocument };
+  if (!body.versionId) throw new Error("Worker 写入响应缺少 versionId，请确认已部署最新 Worker。");
+  return {
+    versionId: body.versionId,
+    document: parseOntologyDocument(body.document)
+  };
+}
+
+export function parseOntologyDocument(value: unknown): OntologyDocument {
+  const validation = validateOntologyDocument(value);
+  if (!validation.success || !validation.document) {
+    throw new Error(`Worker 返回的本体文档无效：${validation.errors.join("；") || "空响应"}`);
+  }
+  return validation.document;
 }
