@@ -12,6 +12,7 @@ CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves"
 binding = "ONTOLOGY_D1"
 database_name = "spr_ontology_versions"
 database_id = "replace-with-cloudflare-d1-database-id"
+migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "ONTOLOGY_BUCKET"

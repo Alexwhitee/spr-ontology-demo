@@ -21,10 +21,46 @@ frontend/dist
 本地验证：
 
 ```bash
-npx wrangler dev --config backend/wrangler.toml
+cp .dev.vars.example .dev.vars
+cp frontend/.env.local.example frontend/.env.local
+npm run worker:dev
+```
+
+另开一个终端启动前端：
+
+```bash
+npm run dev
+```
+
+此时前端会通过 `frontend/.env.local` 连接：
+
+```text
+http://localhost:8787/api/ontology/current
 ```
 
 部署：
+
+```bash
+npx wrangler login
+ADMIN_TOKEN="<your-admin-token>" npm run cf:setup
+npm run cf:deploy:worker
+```
+
+`cf:setup` 会自动完成：
+
+- 创建或复用 D1 数据库 `spr_ontology_versions`。
+- 将 D1 `database_id` 写入 `backend/wrangler.toml`。
+- 创建或复用 R2 bucket `spr-ontology-documents`。
+- 应用 `backend/migrations/0001_ontology_versions.sql`。
+- 当传入 `ADMIN_TOKEN` 时，写入 Worker Secret。
+
+也可以只启动 Worker：
+
+```bash
+npx wrangler dev --config backend/wrangler.toml
+```
+
+只部署 Worker：
 
 ```bash
 npx wrangler deploy --config backend/wrangler.toml
@@ -41,6 +77,14 @@ VITE_API_BASE_URL=https://spr-demo-api.<your-subdomain>.workers.dev
 
 默认不设置时，前端直接加载静态 JSON，适合离线演示和 Pages 静态部署。
 
+如果用 CLI 部署 Pages：
+
+```bash
+cp frontend/.env.production.example frontend/.env.production
+# 将 frontend/.env.production 里的 VITE_API_BASE_URL 改为实际 Worker URL
+npm run cf:deploy:pages
+```
+
 ## Worker 环境变量
 
 ```toml
@@ -52,7 +96,7 @@ ADMIN_TOKEN = "<set with wrangler secret>"
 
 上线后可将 `ALLOWED_ORIGIN` 改为 Pages 域名。
 
-写接口需要设置密钥：
+如果没有通过 `cf:setup` 设置写入密钥，可手动设置：
 
 ```bash
 npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
@@ -62,10 +106,9 @@ npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
 
 在线本体编辑使用 Worker + D1 + R2：
 
-1. 创建 D1 数据库，并把 `backend/wrangler.toml` 中的 `database_id` 替换成真实 ID。
-2. 创建 R2 bucket，并确认 `bucket_name` 与 `backend/wrangler.toml` 一致。
-3. Worker 首次写入时会自动创建 `ontology_versions` 和 `ontology_current` 表。
-4. 前端“在线编辑”页输入 `ADMIN_TOKEN` 后，可上传 JSON、编辑图谱并保存版本。
+1. `npm run cf:setup` 创建 D1/R2 并应用 migration。
+2. Worker 首次写入时也会兜底创建 `ontology_versions` 和 `ontology_current` 表。
+3. 前端“在线编辑”页输入 `ADMIN_TOKEN` 后，可上传 JSON、编辑图谱并保存版本。
 
 ## API
 
