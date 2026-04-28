@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS ontology_versions (
   id TEXT PRIMARY KEY,
   created_at TEXT NOT NULL,
   message TEXT NOT NULL,
-  object_key TEXT NOT NULL
+  object_key TEXT,
+  document_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ontology_current (

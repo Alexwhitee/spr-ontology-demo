@@ -5,7 +5,6 @@ import { resolve } from "node:path";
 const root = resolve(new URL("..", import.meta.url).pathname);
 const wranglerConfigPath = resolve(root, "backend", "wrangler.toml");
 const databaseName = "spr_ontology_versions";
-const bucketName = "spr-ontology-documents";
 
 try {
   main();
@@ -17,7 +16,6 @@ try {
 function main() {
   assertAuthenticated();
   ensureD1Database();
-  ensureR2Bucket();
   applyD1Migrations();
   putAdminTokenIfProvided();
   console.log("\nCloudflare Worker resources are ready.");
@@ -41,7 +39,10 @@ function ensureD1Database() {
 
   const result = run(["wrangler", "d1", "create", databaseName], { allowFailure: true });
   const output = `${result.stdout}\n${result.stderr}`;
-  const databaseId = output.match(/database_id\\s*=\\s*"([^"]+)"/)?.[1] ?? output.match(/database_id:\\s*([\\w-]+)/)?.[1];
+  const databaseId =
+    output.match(/database_id\s*=\s*"([^"]+)"/)?.[1] ??
+    output.match(/"database_id"\s*:\s*"([^"]+)"/)?.[1] ??
+    output.match(/database_id:\s*([\w-]+)/)?.[1];
   if (!databaseId) {
     if (output.includes("already exists")) {
       throw new Error(`D1 database ${databaseName} already exists but database_id could not be read. Run "npx wrangler d1 list" and paste its id into backend/wrangler.toml.`);
@@ -49,18 +50,8 @@ function ensureD1Database() {
     throw new Error(`Unable to create D1 database.\n${output}`);
   }
 
-  writeConfig(config.replace(/database_id\\s*=\\s*"[^"]+"/, `database_id = "${databaseId}"`));
+  writeConfig(config.replace(/database_id\s*=\s*"[^"]+"/, `database_id = "${databaseId}"`));
   console.log(`Configured D1 database_id: ${databaseId}`);
-}
-
-function ensureR2Bucket() {
-  const result = run(["wrangler", "r2", "bucket", "create", bucketName], { allowFailure: true });
-  const output = `${result.stdout}\n${result.stderr}`;
-  if (result.status === 0 || output.includes("already exists")) {
-    console.log(`R2 bucket ready: ${bucketName}`);
-    return;
-  }
-  throw new Error(`Unable to create R2 bucket.\n${output}`);
 }
 
 function applyD1Migrations() {
@@ -87,7 +78,7 @@ function writeConfig(value) {
 }
 
 function readDatabaseId(config) {
-  return config.match(/database_id\\s*=\\s*"([^"]+)"/)?.[1] ?? null;
+  return config.match(/database_id\s*=\s*"([^"]+)"/)?.[1] ?? null;
 }
 
 function run(args, options = {}) {

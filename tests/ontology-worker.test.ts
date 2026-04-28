@@ -10,7 +10,7 @@ type MemoryEnv = {
   ADMIN_TOKEN: string;
   DATASET_URL: string;
   ONTOLOGY_D1: D1Database;
-  ONTOLOGY_BUCKET: R2Bucket;
+  ONTOLOGY_BUCKET?: R2Bucket;
 };
 
 describe("ontology worker editing API", () => {
@@ -73,6 +73,19 @@ describe("ontology worker editing API", () => {
     const currentAfterRestore = await worker.fetch(new Request("https://unit.test/api/ontology/current"), env);
     expect(((await currentAfterRestore.json()) as OntologyDocument).spr_ontology.nodes.record.definition).toBe("导入版本。");
   });
+
+  it("persists ontology documents in D1 when R2 is not configured", async () => {
+    const env = createMemoryEnv({ r2: false });
+    stubDatasetFetch();
+    const document = createOntologyDocumentFromDataset(dataset);
+    document.spr_ontology.nodes.record.definition = "D1-only 版本。";
+
+    const imported = await worker.fetch(authorizedRequest("https://unit.test/api/ontology/import", { document }), env);
+    expect(imported.status).toBe(200);
+
+    const current = await worker.fetch(new Request("https://unit.test/api/ontology/current"), env);
+    expect(((await current.json()) as OntologyDocument).spr_ontology.nodes.record.definition).toBe("D1-only 版本。");
+  });
 });
 
 function authorizedRequest(url: string, body: unknown, method = "POST"): Request {
@@ -90,10 +103,10 @@ function stubDatasetFetch() {
   })));
 }
 
-function createMemoryEnv(): MemoryEnv {
+function createMemoryEnv(options: { r2?: boolean } = { r2: true }): MemoryEnv {
   const state = {
     currentVersionId: null as string | null,
-    versions: [] as Array<{ id: string; created_at: string; message: string; object_key: string }>
+    versions: [] as Array<{ id: string; created_at: string; message: string; object_key: string | null; document_json: string | null }>
   };
   const objects = new Map<string, string>();
   return {
@@ -101,11 +114,11 @@ function createMemoryEnv(): MemoryEnv {
     ADMIN_TOKEN: "secret",
     DATASET_URL: "https://unit.test/data/demo-dataset.json",
     ONTOLOGY_D1: createMemoryD1(state),
-    ONTOLOGY_BUCKET: createMemoryBucket(objects)
+    ...(options.r2 === false ? {} : { ONTOLOGY_BUCKET: createMemoryBucket(objects) })
   };
 }
 
-function createMemoryD1(state: { currentVersionId: string | null; versions: Array<{ id: string; created_at: string; message: string; object_key: string }> }): D1Database {
+function createMemoryD1(state: { currentVersionId: string | null; versions: Array<{ id: string; created_at: string; message: string; object_key: string | null; document_json: string | null }> }): D1Database {
   return {
     prepare(sql: string) {
       return {
@@ -117,7 +130,8 @@ function createMemoryD1(state: { currentVersionId: string | null; versions: Arra
                   id: String(values[0]),
                   created_at: String(values[1]),
                   message: String(values[2]),
-                  object_key: String(values[3])
+                  object_key: values[3] === null ? null : String(values[3]),
+                  document_json: values[4] === null ? null : String(values[4])
                 });
               }
               if (sql.includes("INSERT INTO ontology_current")) state.currentVersionId = String(values[0]);
@@ -126,7 +140,7 @@ function createMemoryD1(state: { currentVersionId: string | null; versions: Arra
             async first<T>() {
               if (sql.includes("FROM ontology_current")) {
                 const version = state.versions.find((item) => item.id === state.currentVersionId);
-                return (version ? { version_id: version.id, object_key: version.object_key } : null) as T | null;
+                return (version ? { version_id: version.id, object_key: version.object_key, document_json: version.document_json } : null) as T | null;
               }
               if (sql.includes("FROM ontology_versions WHERE id")) {
                 const version = state.versions.find((item) => item.id === values[0]);

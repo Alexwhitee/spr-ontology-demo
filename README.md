@@ -66,4 +66,4 @@ ADMIN_TOKEN="<your-admin-token>" npm run cf:setup
 npm run cf:deploy:worker
 ```
 
-在线编辑写接口需要先配置 D1、R2 和 `ADMIN_TOKEN`，详见 [docs/deployment.md](docs/deployment.md)。
+在线编辑写接口需要先配置 D1 和 `ADMIN_TOKEN`，详见 [docs/deployment.md](docs/deployment.md)。

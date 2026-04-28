@@ -50,7 +50,6 @@ npm run cf:deploy:worker
 
 - 创建或复用 D1 数据库 `spr_ontology_versions`。
 - 将 D1 `database_id` 写入 `backend/wrangler.toml`。
-- 创建或复用 R2 bucket `spr-ontology-documents`。
 - 应用 `backend/migrations/0001_ontology_versions.sql`。
 - 当传入 `ADMIN_TOKEN` 时，写入 Worker Secret。
 
@@ -104,9 +103,9 @@ npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
 
 ## 本体编辑存储
 
-在线本体编辑使用 Worker + D1 + R2：
+在线本体编辑使用 Worker + D1：
 
-1. `npm run cf:setup` 创建 D1/R2 并应用 migration。
+1. `npm run cf:setup` 创建 D1 并应用 migration。
 2. Worker 首次写入时也会兜底创建 `ontology_versions` 和 `ontology_current` 表。
 3. 前端“在线编辑”页输入 `ADMIN_TOKEN` 后，可上传 JSON、编辑图谱并保存版本。
 

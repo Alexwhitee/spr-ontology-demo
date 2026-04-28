@@ -140,48 +140,48 @@ async function handleOntologyRestore(request: Request, env: Env, url: URL): Prom
 }
 
 async function getStoredOntologyDocument(env: Env): Promise<OntologyDocument | null> {
-  if (!env.ONTOLOGY_D1 || !env.ONTOLOGY_BUCKET) return null;
+  if (!env.ONTOLOGY_D1) return null;
   await ensureOntologyStorage(env);
   const current = await env.ONTOLOGY_D1
-    .prepare("SELECT c.version_id, v.object_key FROM ontology_current c JOIN ontology_versions v ON v.id = c.version_id WHERE c.singleton = 1")
+    .prepare("SELECT c.version_id, v.object_key, v.document_json FROM ontology_current c JOIN ontology_versions v ON v.id = c.version_id WHERE c.singleton = 1")
     .bind()
-    .first<{ version_id: string; object_key: string }>();
+    .first<{ version_id: string; object_key: string | null; document_json: string | null }>();
   if (!current) return null;
-  const object = await env.ONTOLOGY_BUCKET.get(current.object_key);
-  if (!object) return null;
-  const value = await object.json();
+  const value = await loadStoredDocument(current, env);
+  if (!value) return null;
   const validation = validateOntologyDocument(value);
   if (!validation.success || !validation.document) throw new Error(`stored ontology is invalid: ${validation.errors.join("; ")}`);
   return validation.document;
 }
 
 async function getOntologyDocumentByVersion(env: Env, versionId: string): Promise<OntologyDocument | null> {
-  if (!env.ONTOLOGY_D1 || !env.ONTOLOGY_BUCKET) return null;
+  if (!env.ONTOLOGY_D1) return null;
   await ensureOntologyStorage(env);
   const version = await env.ONTOLOGY_D1
-    .prepare("SELECT id, object_key FROM ontology_versions WHERE id = ?")
+    .prepare("SELECT id, object_key, document_json FROM ontology_versions WHERE id = ?")
     .bind(versionId)
-    .first<{ id: string; object_key: string }>();
+    .first<{ id: string; object_key: string | null; document_json: string | null }>();
   if (!version) return null;
-  const object = await env.ONTOLOGY_BUCKET.get(version.object_key);
-  if (!object) return null;
-  const validation = validateOntologyDocument(await object.json());
+  const value = await loadStoredDocument(version, env);
+  if (!value) return null;
+  const validation = validateOntologyDocument(value);
   if (!validation.success || !validation.document) throw new Error(`stored ontology is invalid: ${validation.errors.join("; ")}`);
   return validation.document;
 }
 
 async function saveOntologyVersion(env: Env, document: OntologyDocument, message: string): Promise<{ id: string; objectKey: string }> {
-  if (!env.ONTOLOGY_D1 || !env.ONTOLOGY_BUCKET) throw new Error("ontology storage bindings are not configured");
+  if (!env.ONTOLOGY_D1) throw new Error("ontology D1 binding is not configured");
   await ensureOntologyStorage(env);
   const versionId = crypto.randomUUID();
   const objectKey = `ontology/${versionId}.json`;
   const createdAt = new Date().toISOString();
   const storedDocument: OntologyDocument = { ...document, generatedAt: createdAt };
+  const documentJson = JSON.stringify(storedDocument);
 
-  await env.ONTOLOGY_BUCKET.put(objectKey, JSON.stringify(storedDocument));
+  if (env.ONTOLOGY_BUCKET) await env.ONTOLOGY_BUCKET.put(objectKey, documentJson);
   await env.ONTOLOGY_D1
-    .prepare("INSERT INTO ontology_versions (id, created_at, message, object_key) VALUES (?, ?, ?, ?)")
-    .bind(versionId, createdAt, message, objectKey)
+    .prepare("INSERT INTO ontology_versions (id, created_at, message, object_key, document_json) VALUES (?, ?, ?, ?, ?)")
+    .bind(versionId, createdAt, message, env.ONTOLOGY_BUCKET ? objectKey : null, documentJson)
     .run();
   await env.ONTOLOGY_D1
     .prepare("INSERT INTO ontology_current (singleton, version_id) VALUES (1, ?) ON CONFLICT(singleton) DO UPDATE SET version_id = excluded.version_id")
@@ -192,8 +192,17 @@ async function saveOntologyVersion(env: Env, document: OntologyDocument, message
 
 async function ensureOntologyStorage(env: Env): Promise<void> {
   if (!env.ONTOLOGY_D1) return;
-  await env.ONTOLOGY_D1.prepare("CREATE TABLE IF NOT EXISTS ontology_versions (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, message TEXT NOT NULL, object_key TEXT NOT NULL)").run();
+  await env.ONTOLOGY_D1.prepare("CREATE TABLE IF NOT EXISTS ontology_versions (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, message TEXT NOT NULL, object_key TEXT, document_json TEXT)").run();
+  await env.ONTOLOGY_D1.prepare("ALTER TABLE ontology_versions ADD COLUMN document_json TEXT").run().catch(() => undefined);
+  await env.ONTOLOGY_D1.prepare("ALTER TABLE ontology_versions ADD COLUMN object_key TEXT").run().catch(() => undefined);
   await env.ONTOLOGY_D1.prepare("CREATE TABLE IF NOT EXISTS ontology_current (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), version_id TEXT NOT NULL)").run();
+}
+
+async function loadStoredDocument(row: { object_key?: string | null; document_json?: string | null }, env: Env): Promise<unknown | null> {
+  if (row.document_json) return JSON.parse(row.document_json);
+  if (!row.object_key || !env.ONTOLOGY_BUCKET) return null;
+  const object = await env.ONTOLOGY_BUCKET.get(row.object_key);
+  return object ? object.json() : null;
 }
 
 function requireAdmin(request: Request, env: Env): Response | null {

@@ -15,14 +15,12 @@ flowchart LR
   E --> F
 ```
 
-在线编辑模式在该结构上增加一层“本体覆盖层”：实例数据和曲线仍来自静态 JSON，本体 JSON 可由 Worker 从 D1/R2 读取当前版本并覆盖静态本体部分。
+在线编辑模式在该结构上增加一层“本体覆盖层”：实例数据和曲线仍来自静态 JSON，本体 JSON 可由 Worker 从 D1 读取当前版本并覆盖静态本体部分。
 
 ```mermaid
 flowchart LR
   U["上传 / 图上编辑 OntologyDocument"] --> W["Cloudflare Worker 编辑 API"]
-  W --> D1["D1: 版本索引 / 当前版本"]
-  W --> R2["R2: 完整本体 JSON 快照"]
-  R2 --> W
+  W --> D1["D1: 版本索引 / 当前版本 / 本体 JSON 快照"]
   D1 --> W
   W --> F["React 在线编辑页"]
 ```
