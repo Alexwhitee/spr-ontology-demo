@@ -37,6 +37,7 @@ import {
 } from "../../../../shared/ontology-service";
 
 export type WorkbenchMode = "structure" | "rules" | "detect" | "root" | "report" | "knowledge";
+type RuleCandidate = RuleExtractionResponse["candidates"][number];
 
 const modeItems: Array<{ key: WorkbenchMode; label: string; icon: typeof FileCode2 }> = [
   { key: "structure", label: "OWL2结构", icon: FileCode2 },
@@ -139,10 +140,12 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   async function handleExtractRules() {
     setIsExtracting(true);
     setExtractError(null);
+    setPublishMessage(null);
     try {
       const result = await extractKnowledgeRules({ sourceDocument, text: knowledgeText });
+      const latestQueue = await loadKnowledgeRuleCandidates().catch(() => []);
       setExtraction(result);
-      setCandidateQueue(result.candidates);
+      setCandidateQueue(mergeRuleCandidates(result.candidates, latestQueue));
       setReviewOverrides({});
       setMode("knowledge");
     } catch (error) {
@@ -153,13 +156,15 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   }
 
   async function handleReviewCandidate(candidateId: string, reviewStatus: RuleReviewStatus) {
-    setReviewOverrides((current) => ({ ...current, [candidateId]: reviewStatus }));
+    setExtractError(null);
+    setPublishMessage(null);
     try {
       const reviewed = await reviewKnowledgeRuleCandidate(candidateId, reviewStatus, reviewToken);
-      setCandidateQueue((current) => current.map((candidate) => candidate.candidateId === candidateId ? { ...candidate, ...reviewed } : candidate));
+      setReviewOverrides((current) => ({ ...current, [candidateId]: reviewed.reviewStatus }));
+      setCandidateQueue((current) => mergeRuleCandidates(current, [reviewed]));
       setExtraction((current) => current ? {
         ...current,
-        candidates: current.candidates.map((candidate) => candidate.candidateId === candidateId ? { ...candidate, ...reviewed } : candidate)
+        candidates: mergeRuleCandidates(current.candidates, [reviewed])
       } : current);
     } catch (error) {
       setExtractError(error instanceof Error ? error.message : String(error));
@@ -167,18 +172,20 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   }
 
   async function handlePublishApproved() {
-    const approvedIds = candidateQueue
-      .filter((candidate) => (reviewOverrides[candidate.candidateId] ?? candidate.reviewStatus) === "approved" && !candidate.publishedVersionId)
+    const approvedIds = getVisibleRuleCandidates(extraction, candidateQueue, reviewOverrides)
+      .filter((candidate) => candidate.reviewStatus === "approved" && !candidate.publishedVersionId)
       .map((candidate) => candidate.candidateId);
     if (approvedIds.length === 0) return;
     setIsPublishing(true);
     setPublishMessage(null);
+    setExtractError(null);
     try {
       const result = await publishKnowledgeRules(approvedIds, reviewToken);
-      setPublishMessage(`Published ${result.publishedRules.length} rule(s) to ontology version ${result.versionId}`);
+      setPublishMessage(`已发布 ${result.publishedRules.length} 条规则到本体版本 ${result.versionId}`);
       const latest = await loadKnowledgeRuleCandidates();
       setCandidateQueue(latest);
       setExtraction((current) => current ? { ...current, candidates: latest } : current);
+      setReviewOverrides({});
     } catch (error) {
       setExtractError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -194,7 +201,6 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
           <h2>本体驱动检测、根因与预警闭环</h2>
         </div>
         <div className="page-actions">
-          <p>图谱化展示 OWL2 类、属性、质量规则和检测流程，过程数据只作为检测编排输入。</p>
           <a className="icon-text-button" href={owlUrl} download="spr-ontology-current.owl">
             <FileCode2 size={16} />
             <span>导出 OWL2</span>
@@ -494,8 +500,8 @@ function KnowledgeExtractionPanel({
   onReview: (candidateId: string, status: RuleReviewStatus) => void;
   onPublishApproved: () => void;
 }) {
-  const candidates = extraction?.candidates.length ? extraction.candidates : candidateQueue;
-  const approvedCount = candidates.filter((candidate) => (reviewOverrides[candidate.candidateId] ?? candidate.reviewStatus) === "approved" && !candidate.publishedVersionId).length;
+  const candidates = getVisibleRuleCandidates(extraction, candidateQueue, reviewOverrides);
+  const approvedCount = candidates.filter((candidate) => candidate.reviewStatus === "approved" && !candidate.publishedVersionId).length;
   return (
     <div className="semantic-panels">
       <section className="panel semantic-panel-wide knowledge-form">
@@ -522,7 +528,7 @@ function KnowledgeExtractionPanel({
           </button>
           <button type="button" className="primary-action" onClick={onPublishApproved} disabled={isPublishing || approvedCount === 0 || reviewToken.trim().length === 0}>
             {isPublishing ? <Loader2 size={16} /> : <FileCode2 size={16} />}
-            {isPublishing ? "Publishing" : `Publish ${approvedCount}`}
+            {isPublishing ? "发布中" : `发布已通过规则 ${approvedCount}`}
           </button>
           {error && <span className="api-error">{error}</span>}
           {publishMessage && <span className="muted">{publishMessage}</span>}
@@ -550,14 +556,14 @@ function KnowledgeExtractionPanel({
                   <dt>证据字段</dt>
                   <dd>{candidate.evidenceFields.join(" / ")}</dd>
                   <dt>状态</dt>
-                  <dd>{candidate.publishedVersionId ? `published ${candidate.publishedVersionId}` : status}</dd>
+                  <dd>{candidate.publishedVersionId ? `已发布 ${candidate.publishedVersionId}` : status}</dd>
                 </dl>
                 <div className="candidate-actions">
-                  <button type="button" onClick={() => onReview(candidate.candidateId, "approved")} disabled={reviewToken.trim().length === 0}>
+                  <button type="button" onClick={() => onReview(candidate.candidateId, "approved")} disabled={reviewToken.trim().length === 0 || Boolean(candidate.publishedVersionId)}>
                     <CheckCircle2 size={15} />
                     通过
                   </button>
-                  <button type="button" onClick={() => onReview(candidate.candidateId, "rejected")} disabled={reviewToken.trim().length === 0}>
+                  <button type="button" onClick={() => onReview(candidate.candidateId, "rejected")} disabled={reviewToken.trim().length === 0 || Boolean(candidate.publishedVersionId)}>
                     <XCircle size={15} />
                     退回
                   </button>
@@ -570,4 +576,26 @@ function KnowledgeExtractionPanel({
       </section>
     </div>
   );
+}
+
+function getVisibleRuleCandidates(
+  extraction: RuleExtractionResponse | null,
+  candidateQueue: RuleCandidate[],
+  reviewOverrides: Record<string, RuleReviewStatus>
+): RuleCandidate[] {
+  return mergeRuleCandidates(extraction?.candidates ?? [], candidateQueue)
+    .map((candidate) => reviewOverrides[candidate.candidateId]
+      ? { ...candidate, reviewStatus: reviewOverrides[candidate.candidateId] }
+      : candidate);
+}
+
+function mergeRuleCandidates(...groups: RuleCandidate[][]): RuleCandidate[] {
+  const merged = new Map<string, RuleCandidate>();
+  for (const group of groups) {
+    for (const candidate of group) {
+      const previous = merged.get(candidate.candidateId);
+      merged.set(candidate.candidateId, previous ? { ...previous, ...candidate } : candidate);
+    }
+  }
+  return Array.from(merged.values());
 }

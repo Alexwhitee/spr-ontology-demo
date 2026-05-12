@@ -102,7 +102,7 @@ function TopBar({ dataset }: { dataset: DemoDataset }) {
     <header className="topbar">
       <div>
         <span className="eyebrow">SPR Ontology Demo</span>
-        <h1>顶层工艺本体如何承载 SPR 在线过程数据</h1>
+        <h1>本体</h1>
       </div>
       <div className="topbar-meta">
         <span>生成时间 {new Date(dataset.generatedAt).toLocaleString("zh-CN")}</span>

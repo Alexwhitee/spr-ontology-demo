@@ -37,7 +37,6 @@ export function TopOntologyView({ dataset }: Props) {
           <h2>顶层工艺本体是 SPR 的抽象承载层</h2>
         </div>
         <div className="page-actions">
-          <p>依据《顶层工艺本体建设方案_v0.2.md》和《顶层工艺本体补充建议.md》，稳定类与候选补充类分层展示。</p>
           <button type="button" className="icon-text-button" onClick={() => setIsGraphExpanded((value) => !value)}>
             {isGraphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             <span>{isGraphExpanded ? "退出大图" : "展开图谱"}</span>

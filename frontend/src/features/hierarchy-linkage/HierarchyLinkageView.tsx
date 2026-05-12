@@ -36,7 +36,6 @@ export function HierarchyLinkageView({ dataset }: { dataset: DemoDataset }) {
           <span className="eyebrow">Hierarchy Linkage</span>
           <h2>点击任一层，即可看到抽象类与 SPR 类的双向映射</h2>
         </div>
-        <p>这个页面把 `parent_top_id`、`subclass-of`、文档证据和路径追踪合在一起，是汇报时证明本体层级关系的核心画面。</p>
       </div>
       <div className="linkage-grid">
         <section className="linkage-panel">

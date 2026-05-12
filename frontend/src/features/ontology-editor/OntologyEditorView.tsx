@@ -340,9 +340,6 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
           <span className="eyebrow">Ontology Editor</span>
           <h2>在线导入、编辑和版本化本体 JSON</h2>
         </div>
-        <div className="page-actions">
-          <p>{message}</p>
-        </div>
       </div>
 
       <div className="editor-toolbar">
@@ -364,6 +361,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
           <span>保存云端版本</span>
         </button>
       </div>
+      <p className="editor-message">{message}</p>
 
       {errors.length > 0 && (
         <div className="validation-panel">

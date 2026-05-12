@@ -32,7 +32,6 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
           <h2>SPR 本体显式继承顶层工艺类</h2>
         </div>
         <div className="page-actions">
-          <p>核心主链路、在线过程记录、曲线包络线、预测结果与规则解释都具有明确的 `parent_top_id`。</p>
           <button type="button" className="icon-text-button" onClick={() => setIsGraphExpanded((value) => !value)}>
             {isGraphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             <span>{isGraphExpanded ? "退出大图" : "展开图谱"}</span>
