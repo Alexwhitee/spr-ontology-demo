@@ -6,7 +6,22 @@ import {
   validateOntologyDocument,
   type OntologyDocument
 } from "../../shared/ontology";
-import type { DemoDataset, Env, OntologyOperation, ProcessRecord } from "./types/demo";
+import {
+  analyzeRootCause,
+  createWarningReport,
+  exportOwlXml,
+  extractRuleCandidates,
+  extractRuleCandidatesWithLlm,
+  listOntologyClasses,
+  listQualityRules,
+  runDetection,
+  validateOwl2Artifacts,
+  type DetectionResult,
+  type RuleExtractionCandidate,
+  type RuleReviewStatus,
+  type RootCauseAnalysis
+} from "../../shared/ontology-service";
+import type { DemoDataset, Env, OntologyOperation, ProcessRecord, SprOntologyNode, SprOntologyRelation, TopSprMapping } from "./types/demo";
 
 const DEFAULT_DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json";
 const DEFAULT_CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves";
@@ -27,6 +42,10 @@ export default {
       const dataset = await getDataset(env);
       if (url.pathname === "/api/dataset") return json(dataset, env);
       if (url.pathname === "/api/summary") return json(dataset.summary, env);
+      if (url.pathname === "/api/ontology/owl") return owl(exportOwlXml(dataset), env);
+      if (url.pathname === "/api/ontology/validate") return json(validateOwl2Artifacts(dataset), env);
+      if (url.pathname === "/api/ontology/classes") return json(listOntologyClasses(dataset), env);
+      if (url.pathname === "/api/ontology/rules") return json(listQualityRules(dataset), env);
       if (url.pathname === "/api/ontology") return json(dataset.ontology, env);
       if (url.pathname === "/api/top-ontology") return json(dataset.top_ontology, env);
       if (url.pathname === "/api/spr-ontology") return json(dataset.spr_ontology, env);
@@ -58,6 +77,13 @@ export default {
         const record = dataset.records.find((item) => item.id === id) ?? dataset.records[0];
         return json(explainRecord(record), env);
       }
+      if (url.pathname === "/api/detect/run") return handleDetectionRun(request, env, dataset);
+      if (url.pathname === "/api/root-cause/analyze") return handleRootCauseAnalyze(request, env, dataset);
+      if (url.pathname === "/api/reports/warning") return handleWarningReport(request, env, dataset);
+      if (url.pathname === "/api/knowledge/rule-candidates") return handleRuleCandidatesList(request, env);
+      if (url.pathname.startsWith("/api/knowledge/rule-candidates/") && url.pathname.endsWith("/review")) return handleRuleCandidateReview(request, env, url);
+      if (url.pathname === "/api/knowledge/publish-rules") return handleRulePublish(request, env, dataset);
+      if (url.pathname === "/api/knowledge/extract-rules") return handleRuleExtraction(request, env);
       return json({ status: "ok", service: "spr-demo-api" }, env);
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : String(error) }, env, 500);
@@ -198,6 +224,29 @@ async function ensureOntologyStorage(env: Env): Promise<void> {
   await env.ONTOLOGY_D1.prepare("CREATE TABLE IF NOT EXISTS ontology_current (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), version_id TEXT NOT NULL)").run();
 }
 
+async function ensureKnowledgeRuleStorage(env: Env): Promise<void> {
+  if (!env.ONTOLOGY_D1) return;
+  await env.ONTOLOGY_D1.prepare([
+    "CREATE TABLE IF NOT EXISTS knowledge_rule_candidates (",
+    "id TEXT PRIMARY KEY,",
+    "source_document TEXT NOT NULL,",
+    "source_excerpt TEXT NOT NULL,",
+    "rule_name TEXT NOT NULL,",
+    "applicable_process TEXT NOT NULL,",
+    "trigger_condition TEXT NOT NULL,",
+    "defect_pattern TEXT NOT NULL,",
+    "root_cause_candidate TEXT NOT NULL,",
+    "evidence_fields_json TEXT NOT NULL,",
+    "recommended_actions_json TEXT NOT NULL,",
+    "review_status TEXT NOT NULL,",
+    "confidence REAL,",
+    "created_at TEXT NOT NULL,",
+    "updated_at TEXT NOT NULL,",
+    "published_version_id TEXT",
+    ")"
+  ].join(" ")).run();
+}
+
 async function loadStoredDocument(row: { object_key?: string | null; document_json?: string | null }, env: Env): Promise<unknown | null> {
   if (row.document_json) return JSON.parse(row.document_json);
   if (!row.object_key || !env.ONTOLOGY_BUCKET) return null;
@@ -263,6 +312,293 @@ function buildSubgraph(dataset: DemoDataset, id: string) {
   return { nodes, edges };
 }
 
+async function handleDetectionRun(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  const body = await request.json().catch(() => ({})) as { recordId?: string; modelMode?: "mock" | "llm"; includeCurveSummary?: boolean };
+  const recordId = body.recordId ?? dataset.records[0]?.id;
+  if (!recordId) return json({ error: "recordId is required" }, env, 400);
+  const modelMode = body.modelMode ?? (env.LLM_API_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL ? "llm" : "mock");
+  return json(await runDetection(dataset, {
+    recordId,
+    modelMode,
+    includeCurveSummary: body.includeCurveSummary ?? true,
+    llm: {
+      apiBaseUrl: env.LLM_API_BASE_URL,
+      apiKey: env.LLM_API_KEY,
+      model: env.LLM_MODEL,
+      timeoutMs: env.LLM_TIMEOUT_MS ? Number(env.LLM_TIMEOUT_MS) : undefined
+    }
+  }), env);
+}
+
+async function handleRootCauseAnalyze(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  const body = await request.json().catch(() => ({})) as { recordId?: string; anomalyEventId?: string; detection?: DetectionResult };
+  const detection = body.detection ?? await runDetection(dataset, { recordId: body.recordId ?? dataset.records[0]?.id ?? "", modelMode: "mock", includeCurveSummary: true });
+  return json(analyzeRootCause(dataset, { anomalyEventId: body.anomalyEventId ?? detection.anomalyEvent?.id ?? "", detection }), env);
+}
+
+async function handleWarningReport(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  const body = await request.json().catch(() => ({})) as { recordId?: string; detection?: DetectionResult; rootCause?: RootCauseAnalysis };
+  const detection = body.detection ?? await runDetection(dataset, { recordId: body.recordId ?? dataset.records[0]?.id ?? "", modelMode: "mock", includeCurveSummary: true });
+  const rootCause = body.rootCause ?? analyzeRootCause(dataset, { anomalyEventId: detection.anomalyEvent?.id ?? "", detection });
+  return json(createWarningReport(dataset, { detection, rootCause }), env);
+}
+
+async function handleRuleExtraction(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  const body = await request.json().catch(() => ({})) as { text?: string; sourceDocument?: string };
+  const useLlm = Boolean(env.LLM_API_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL);
+  const extraction = useLlm ? await extractRuleCandidatesWithLlm({
+    text: body.text ?? "",
+    sourceDocument: body.sourceDocument,
+    modelMode: "llm",
+    llm: {
+      apiBaseUrl: env.LLM_API_BASE_URL,
+      apiKey: env.LLM_API_KEY,
+      model: env.LLM_MODEL,
+      timeoutMs: env.LLM_TIMEOUT_MS ? Number(env.LLM_TIMEOUT_MS) : undefined
+    }
+  }) : extractRuleCandidates({
+    text: body.text ?? "",
+    sourceDocument: body.sourceDocument,
+    modelMode: "mock"
+  });
+  if (env.ONTOLOGY_D1) await persistRuleCandidates(env, extraction.candidates);
+  return json(extraction, env);
+}
+
+async function handleRuleCandidatesList(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "GET") return json({ error: "method not allowed" }, env, 405);
+  if (!env.ONTOLOGY_D1) return json([], env);
+  await ensureKnowledgeRuleStorage(env);
+  const result = await env.ONTOLOGY_D1
+    .prepare("SELECT * FROM knowledge_rule_candidates ORDER BY created_at DESC LIMIT 100")
+    .bind()
+    .all<RuleCandidateRow>();
+  return json((result.results ?? []).map(rowToRuleCandidate), env);
+}
+
+async function handleRuleCandidateReview(request: Request, env: Env, url: URL): Promise<Response> {
+  const unauthorized = requireAdmin(request, env);
+  if (unauthorized) return unauthorized;
+  if (request.method !== "PATCH") return json({ error: "method not allowed" }, env, 405);
+  if (!env.ONTOLOGY_D1) return json({ error: "ontology D1 binding is not configured" }, env, 503);
+  const candidateId = decodeURIComponent(url.pathname.replace("/api/knowledge/rule-candidates/", "").replace("/review", ""));
+  const body = await request.json().catch(() => ({})) as { reviewStatus?: RuleReviewStatus };
+  if (body.reviewStatus !== "approved" && body.reviewStatus !== "rejected" && body.reviewStatus !== "pending") {
+    return json({ error: "reviewStatus must be pending, approved, or rejected" }, env, 400);
+  }
+  await ensureKnowledgeRuleStorage(env);
+  const existing = await getRuleCandidateRow(env, candidateId);
+  if (!existing) return json({ error: "rule candidate not found" }, env, 404);
+  const updatedAt = new Date().toISOString();
+  await env.ONTOLOGY_D1
+    .prepare("UPDATE knowledge_rule_candidates SET review_status = ?, updated_at = ? WHERE id = ?")
+    .bind(body.reviewStatus, updatedAt, candidateId)
+    .run();
+  return json({ ...rowToRuleCandidate(existing), reviewStatus: body.reviewStatus, updatedAt }, env);
+}
+
+async function handleRulePublish(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {
+  const unauthorized = requireAdmin(request, env);
+  if (unauthorized) return unauthorized;
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  if (!env.ONTOLOGY_D1) return json({ error: "ontology D1 binding is not configured" }, env, 503);
+  const body = await request.json().catch(() => ({})) as { candidateIds?: string[] };
+  const candidateIds = Array.isArray(body.candidateIds) ? body.candidateIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0) : [];
+  if (candidateIds.length === 0) return json({ error: "candidateIds must be a non-empty array" }, env, 400);
+
+  await ensureKnowledgeRuleStorage(env);
+  const rows = (await Promise.all(candidateIds.map((id) => getRuleCandidateRow(env, id)))).filter((row): row is RuleCandidateRow => Boolean(row));
+  if (rows.length !== candidateIds.length) return json({ error: "one or more rule candidates were not found" }, env, 404);
+  const notApproved = rows.find((row) => row.review_status !== "approved");
+  if (notApproved) return json({ error: `rule candidate is not approved: ${notApproved.id}` }, env, 409);
+
+  const current = await getCurrentOntologyDocument(env);
+  const { document, publishedRules } = publishCandidatesToDocument(current, rows.map(rowToRuleCandidate), dataset);
+  const version = await saveOntologyVersion(env, document, `Publish ${publishedRules.length} approved knowledge rule(s)`);
+  const updatedAt = new Date().toISOString();
+  await Promise.all(rows.map((row) => env.ONTOLOGY_D1!
+    .prepare("UPDATE knowledge_rule_candidates SET published_version_id = ?, updated_at = ? WHERE id = ?")
+    .bind(version.id, updatedAt, row.id)
+    .run()));
+
+  return json({ versionId: version.id, publishedRules, document }, env);
+}
+
+type RuleCandidateRow = {
+  id: string;
+  source_document: string;
+  source_excerpt: string;
+  rule_name: string;
+  applicable_process: string;
+  trigger_condition: string;
+  defect_pattern: string;
+  root_cause_candidate: string;
+  evidence_fields_json: string;
+  recommended_actions_json: string;
+  review_status: string;
+  confidence: number | null;
+  created_at: string;
+  updated_at: string;
+  published_version_id: string | null;
+};
+
+async function persistRuleCandidates(env: Env, candidates: RuleExtractionCandidate[]): Promise<void> {
+  if (!env.ONTOLOGY_D1) return;
+  await ensureKnowledgeRuleStorage(env);
+  const now = new Date().toISOString();
+  await Promise.all(candidates.map((candidate) => env.ONTOLOGY_D1!
+    .prepare([
+      "INSERT INTO knowledge_rule_candidates",
+      "(id, source_document, source_excerpt, rule_name, applicable_process, trigger_condition, defect_pattern, root_cause_candidate, evidence_fields_json, recommended_actions_json, review_status, confidence, created_at, updated_at, published_version_id)",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "ON CONFLICT(id) DO UPDATE SET",
+      "source_document = excluded.source_document,",
+      "source_excerpt = excluded.source_excerpt,",
+      "rule_name = excluded.rule_name,",
+      "applicable_process = excluded.applicable_process,",
+      "trigger_condition = excluded.trigger_condition,",
+      "defect_pattern = excluded.defect_pattern,",
+      "root_cause_candidate = excluded.root_cause_candidate,",
+      "evidence_fields_json = excluded.evidence_fields_json,",
+      "recommended_actions_json = excluded.recommended_actions_json,",
+      "updated_at = excluded.updated_at"
+    ].join(" "))
+    .bind(
+      candidate.candidateId,
+      candidate.sourceDocument,
+      candidate.sourceExcerpt,
+      candidate.ruleName,
+      candidate.applicableProcess,
+      candidate.triggerCondition,
+      candidate.defectPattern,
+      candidate.rootCauseCandidate,
+      JSON.stringify(candidate.evidenceFields),
+      JSON.stringify(candidate.recommendedActions),
+      candidate.reviewStatus,
+      candidate.confidence ?? null,
+      now,
+      now,
+      candidate.publishedVersionId ?? null
+    )
+    .run()));
+}
+
+async function getRuleCandidateRow(env: Env, candidateId: string): Promise<RuleCandidateRow | null> {
+  if (!env.ONTOLOGY_D1) return null;
+  await ensureKnowledgeRuleStorage(env);
+  return await env.ONTOLOGY_D1
+    .prepare("SELECT * FROM knowledge_rule_candidates WHERE id = ?")
+    .bind(candidateId)
+    .first<RuleCandidateRow>();
+}
+
+function rowToRuleCandidate(row: RuleCandidateRow): RuleExtractionCandidate & { createdAt?: string; updatedAt?: string } {
+  return {
+    candidateId: row.id,
+    ruleName: row.rule_name,
+    applicableProcess: row.applicable_process,
+    triggerCondition: row.trigger_condition,
+    defectPattern: row.defect_pattern,
+    rootCauseCandidate: row.root_cause_candidate,
+    evidenceFields: parseJsonArray(row.evidence_fields_json),
+    recommendedActions: parseJsonArray(row.recommended_actions_json),
+    sourceDocument: row.source_document,
+    sourceExcerpt: row.source_excerpt,
+    reviewStatus: normalizeReviewStatus(row.review_status),
+    confidence: row.confidence ?? undefined,
+    publishedVersionId: row.published_version_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function publishCandidatesToDocument(document: OntologyDocument, candidates: RuleExtractionCandidate[], dataset: DemoDataset): { document: OntologyDocument; publishedRules: Array<{ id: string; name: string; candidateId: string }> } {
+  const next: OntologyDocument = JSON.parse(JSON.stringify(document)) as OntologyDocument;
+  const publishedRules: Array<{ id: string; name: string; candidateId: string }> = [];
+  const topRuleId = next.top_ontology.nodes["rule-top"] ? "rule-top" : Object.keys(next.top_ontology.nodes)[0];
+  const defectTarget = next.spr_ontology.nodes.defect ? "defect" : Object.keys(next.spr_ontology.nodes)[0];
+  const rootCauseTarget = next.spr_ontology.nodes["root-cause"] ? "root-cause" : defectTarget;
+
+  for (const candidate of candidates) {
+    const id = uniqueSprRuleId(next, candidate);
+    const node: SprOntologyNode = {
+      id,
+      name: candidate.ruleName,
+      layer: "spr-rule",
+      parent_top_id: topRuleId,
+      inheritance_relation: "subclass-of",
+      definition: candidate.triggerCondition,
+      source_fields: candidate.evidenceFields,
+      properties: [
+        { name: "defectPattern", description: candidate.defectPattern },
+        { name: "rootCauseCandidate", description: candidate.rootCauseCandidate },
+        ...candidate.recommendedActions.map((action) => ({ name: "recommendedAction", description: action }))
+      ],
+      relations: [],
+      source_doc: candidate.sourceDocument
+    };
+    const relations: SprOntologyRelation[] = [
+      { id: `${id}-defect`, source: id, target: defectTarget, label: "detectsDefectPattern", type: "objectProperty" },
+      { id: `${id}-root-cause`, source: id, target: rootCauseTarget, label: "hasRootCauseCandidate", type: "objectProperty" }
+    ];
+    const mapping: TopSprMapping = {
+      id: `mapping-${id}`,
+      top_id: topRuleId,
+      spr_id: id,
+      relation: "candidate-extension",
+      evidence: candidate.sourceExcerpt,
+      source_section: candidate.sourceDocument
+    };
+
+    next.spr_ontology.nodes[id] = node;
+    next.spr_ontology.relations = [
+      ...next.spr_ontology.relations.filter((relation) => !relations.some((item) => item.id === relation.id)),
+      ...relations
+    ];
+    next.top_spr_mappings = [
+      ...next.top_spr_mappings.filter((item) => item.id !== mapping.id),
+      mapping
+    ];
+    publishedRules.push({ id, name: candidate.ruleName, candidateId: candidate.candidateId });
+  }
+  next.generatedAt = new Date().toISOString();
+  const validation = validateOntologyDocument(next);
+  if (!validation.success || !validation.document) throw new Error(`published ontology is invalid: ${validation.errors.join("; ")}`);
+  return { document: validation.document, publishedRules };
+}
+
+function uniqueSprRuleId(document: OntologyDocument, candidate: RuleExtractionCandidate): string {
+  const base = `rule-${slugify(candidate.ruleName) || candidate.candidateId.replace(/^candidate-/, "").slice(0, 32)}`;
+  let id = base;
+  let index = 2;
+  while (document.spr_ontology.nodes[id] && document.spr_ontology.nodes[id].name !== candidate.ruleName) {
+    id = `${base}-${index}`;
+    index += 1;
+  }
+  return id;
+}
+
+function normalizeReviewStatus(value: string): RuleReviewStatus {
+  return value === "approved" || value === "rejected" ? value : "pending";
+}
+
+function parseJsonArray(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function normalizeFault(value: string | undefined): string {
   if (!value || value === "-") return "正常或未标记";
   return value.replace(/^DDC:\s*/, "");
@@ -270,6 +606,10 @@ function normalizeFault(value: string | undefined): string {
 
 function json(value: unknown, env: Env, status = 200): Response {
   return withCors(JSON.stringify(value), env, status, { "content-type": "application/json; charset=utf-8" });
+}
+
+function owl(value: string, env: Env, status = 200): Response {
+  return withCors(value, env, status, { "content-type": "application/rdf+xml; charset=utf-8" });
 }
 
 function withCors(body: BodyInit | null, env: Env, status: number, headers: HeadersInit = {}): Response {

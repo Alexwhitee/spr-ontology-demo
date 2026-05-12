@@ -19,4 +19,8 @@ export type Env = {
   CURVE_BASE_URL?: string;
   ONTOLOGY_D1?: D1Database;
   ONTOLOGY_BUCKET?: R2Bucket;
+  LLM_API_BASE_URL?: string;
+  LLM_API_KEY?: string;
+  LLM_MODEL?: string;
+  LLM_TIMEOUT_MS?: string;
 };

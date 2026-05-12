@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <owl:Ontology rdf:about="https://example.com/ontology/core">
+    <rdfs:comment>Generated OWL2 module for core.owl.</rdfs:comment>
+  </owl:Ontology>
+  <owl:Class rdf:about="#Entity">
+    <rdfs:label>Entity</rdfs:label>
+    <rdfs:comment>Base class for managed ontology objects.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#VersionedEntity">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>VersionedEntity</rdfs:label>
+    <rdfs:comment>Objects with version and lifecycle metadata.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#TraceableEntity">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>TraceableEntity</rdfs:label>
+    <rdfs:comment>Objects with source and traceability metadata.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Document">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>Document</rdfs:label>
+    <rdfs:comment>Standards, SOPs, reports, and records.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#ExpertDocument">
+    <rdfs:subClassOf rdf:resource="#Document"/>
+    <rdfs:label>ExpertDocument</rdfs:label>
+    <rdfs:comment>Expert documents used to extract quality rules.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Rule">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Rule</rdfs:label>
+    <rdfs:comment>Reusable constraints and reasoning rules.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Event">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>Event</rdfs:label>
+    <rdfs:comment>Business or process events.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Action">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Action</rdfs:label>
+    <rdfs:comment>Executable semantic action.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Service">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Service</rdfs:label>
+    <rdfs:comment>Callable capability or service.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Report">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>Report</rdfs:label>
+    <rdfs:comment>Generated analysis report.</rdfs:comment>
+  </owl:Class>
+  <owl:ObjectProperty rdf:about="#hasSourceDocument">
+    <rdfs:label>hasSourceDocument</rdfs:label>
+    <rdfs:domain rdf:resource="#TraceableEntity"/>
+    <rdfs:range rdf:resource="#Document"/>
+  </owl:ObjectProperty>
+  <owl:DatatypeProperty rdf:about="#hasVersion">
+    <rdfs:label>hasVersion</rdfs:label>
+    <rdfs:domain rdf:resource="#VersionedEntity"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:ObjectProperty rdf:about="#triggeredBy">
+    <rdfs:label>triggeredBy</rdfs:label>
+    <rdfs:domain rdf:resource="#Action"/>
+    <rdfs:range rdf:resource="#Event"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#generatesReport">
+    <rdfs:label>generatesReport</rdfs:label>
+    <rdfs:domain rdf:resource="#Action"/>
+    <rdfs:range rdf:resource="#Report"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasRule">
+    <rdfs:label>hasRule</rdfs:label>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="#Rule"/>
+  </owl:ObjectProperty>
+</rdf:RDF>

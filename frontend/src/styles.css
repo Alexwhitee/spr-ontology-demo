@@ -17,7 +17,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -1358,6 +1359,279 @@ button {
   font-size: 12px;
 }
 
+.semantic-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.semantic-status > div {
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.semantic-status strong,
+.semantic-status span {
+  display: block;
+}
+
+.semantic-status strong {
+  color: #2447a8;
+  font-size: 26px;
+}
+
+.semantic-status span {
+  color: #687386;
+  margin-top: 2px;
+}
+
+.semantic-status .status-ok strong {
+  color: #159a75;
+}
+
+.semantic-status .status-blocked strong {
+  color: #be123c;
+}
+
+.semantic-toolbar {
+  align-items: center;
+}
+
+.semantic-toolbar button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.primary-action,
+.toolbar button.primary-action {
+  align-items: center;
+  background: #172033;
+  border: 1px solid #172033;
+  color: #ffffff;
+  display: inline-flex;
+  gap: 7px;
+  font-weight: 800;
+}
+
+.primary-action:disabled,
+.toolbar button.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.record-picker {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  min-width: min(460px, 100%);
+  padding: 8px 10px;
+}
+
+.record-picker select {
+  border: 0;
+  color: #172033;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.owl2-workbench {
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.45fr);
+}
+
+.owl2-workbench .graph-canvas {
+  min-height: 640px;
+}
+
+.semantic-inspector .evidence-list {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.semantic-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.45fr);
+  gap: 14px;
+}
+
+.semantic-panel-wide {
+  min-width: 0;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.module-grid div {
+  border-left: 3px solid #2447a8;
+  padding-left: 10px;
+}
+
+.module-grid strong,
+.module-grid span {
+  display: block;
+}
+
+.module-grid span {
+  color: #687386;
+  margin-top: 3px;
+}
+
+.rule-row {
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  color: #172033;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+}
+
+.rule-row:hover {
+  border-color: #2447a8;
+  transform: translateY(-1px);
+}
+
+.rule-row span,
+.rule-row em {
+  color: #687386;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.rule-row strong {
+  font-size: 17px;
+}
+
+.semantic-timeline {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.semantic-timeline span {
+  background: #eef3ff;
+  border: 1px solid #d9e3ff;
+  border-radius: 999px;
+  color: #2447a8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.large-number {
+  color: #2447a8;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  margin: 8px 0;
+}
+
+.action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.api-error {
+  color: #be123c;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.knowledge-form {
+  display: grid;
+  gap: 12px;
+}
+
+.knowledge-form label {
+  color: #687386;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.knowledge-form input,
+.knowledge-form textarea {
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  color: #172033;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.knowledge-form textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-candidate {
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.review-candidate.status-approved {
+  border-color: #9ee6c8;
+  background: #f0fdf7;
+}
+
+.review-candidate.status-rejected {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.review-candidate strong,
+.review-candidate span {
+  display: block;
+}
+
+.review-candidate span {
+  color: #687386;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 4px;
+}
+
+.candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.candidate-actions button {
+  align-items: center;
+  border: 1px solid #d7deea;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #344054;
+  display: inline-flex;
+  gap: 5px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
 .loading,
 .fatal {
   min-height: 100vh;
@@ -1412,6 +1686,9 @@ button {
   }
 
   .metrics-grid,
+  .semantic-status,
+  .semantic-panels,
+  .module-grid,
   .two-column,
   .conclusion-strip,
   .overview-strip,
@@ -1430,6 +1707,11 @@ button {
 
   .editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .record-picker {
+    margin-left: 0;
+    width: 100%;
   }
 
   .editor-mode-tabs {

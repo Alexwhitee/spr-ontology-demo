@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <owl:Ontology rdf:about="https://example.com/ontology/quality">
+    <rdfs:comment>Generated OWL2 module for quality.owl.</rdfs:comment>
+  </owl:Ontology>
+  <owl:Class rdf:about="#QualityStandard">
+    <rdfs:subClassOf rdf:resource="#Document"/>
+    <rdfs:label>QualityStandard</rdfs:label>
+    <rdfs:comment>Quality standard used by inspection.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#QualityCharacteristic">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>QualityCharacteristic</rdfs:label>
+    <rdfs:comment>Quality feature or evaluation characteristic.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#InspectionPlan">
+    <rdfs:subClassOf rdf:resource="#VersionedEntity"/>
+    <rdfs:label>InspectionPlan</rdfs:label>
+    <rdfs:comment>Plan defining inspection scope and frequency.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#InspectionMethod">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>InspectionMethod</rdfs:label>
+    <rdfs:comment>Inspection method such as UT, vision, or curve judgment.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#InspectionProcess">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>InspectionProcess</rdfs:label>
+    <rdfs:comment>Executable inspection process.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#InspectionResult">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>InspectionResult</rdfs:label>
+    <rdfs:comment>Inspection result and quality conclusion evidence.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#QualityStatus">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>QualityStatus</rdfs:label>
+    <rdfs:comment>Status such as pass, review, or fail.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#DefectPattern">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>DefectPattern</rdfs:label>
+    <rdfs:comment>Identified defect or anomaly pattern.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#AnomalyEvent">
+    <rdfs:subClassOf rdf:resource="#Event"/>
+    <rdfs:label>AnomalyEvent</rdfs:label>
+    <rdfs:comment>Event generated from abnormal quality evidence.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#RootCause">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>RootCause</rdfs:label>
+    <rdfs:comment>Candidate or confirmed cause for a defect.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#CorrectiveAction">
+    <rdfs:subClassOf rdf:resource="#Action"/>
+    <rdfs:label>CorrectiveAction</rdfs:label>
+    <rdfs:comment>Corrective action for current issue.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#PreventiveAction">
+    <rdfs:subClassOf rdf:resource="#Action"/>
+    <rdfs:label>PreventiveAction</rdfs:label>
+    <rdfs:comment>Preventive action to reduce recurrence.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#DiagnosticEvidence">
+    <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
+    <rdfs:label>DiagnosticEvidence</rdfs:label>
+    <rdfs:comment>Evidence used by root-cause analysis.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#QualityRule">
+    <rdfs:subClassOf rdf:resource="#Rule"/>
+    <rdfs:label>QualityRule</rdfs:label>
+    <rdfs:comment>Quality judgment and diagnosis rule.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#WarningReport">
+    <rdfs:subClassOf rdf:resource="#Report"/>
+    <rdfs:label>WarningReport</rdfs:label>
+    <rdfs:comment>Ontology-driven warning report.</rdfs:comment>
+  </owl:Class>
+  <owl:ObjectProperty rdf:about="#hasQualityStandard">
+    <rdfs:label>hasQualityStandard</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionPlan"/>
+    <rdfs:range rdf:resource="#QualityStandard"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasQualityCharacteristic">
+    <rdfs:label>hasQualityCharacteristic</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionPlan"/>
+    <rdfs:range rdf:resource="#QualityCharacteristic"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasInspectionPlan">
+    <rdfs:label>hasInspectionPlan</rdfs:label>
+    <rdfs:domain rdf:resource="#ManufacturingProcess"/>
+    <rdfs:range rdf:resource="#InspectionPlan"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasInspectionProcess">
+    <rdfs:label>hasInspectionProcess</rdfs:label>
+    <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
+    <rdfs:range rdf:resource="#InspectionProcess"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#producesInspectionResult">
+    <rdfs:label>producesInspectionResult</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionProcess"/>
+    <rdfs:range rdf:resource="#InspectionResult"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#detectsDefectPattern">
+    <rdfs:label>detectsDefectPattern</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionResult"/>
+    <rdfs:range rdf:resource="#DefectPattern"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasAnomalyEvent">
+    <rdfs:label>hasAnomalyEvent</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionResult"/>
+    <rdfs:range rdf:resource="#AnomalyEvent"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasRootCauseCandidate">
+    <rdfs:label>hasRootCauseCandidate</rdfs:label>
+    <rdfs:domain rdf:resource="#AnomalyEvent"/>
+    <rdfs:range rdf:resource="#RootCause"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#supportedByEvidence">
+    <rdfs:label>supportedByEvidence</rdfs:label>
+    <rdfs:domain rdf:resource="#RootCause"/>
+    <rdfs:range rdf:resource="#DiagnosticEvidence"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#correctedBy">
+    <rdfs:label>correctedBy</rdfs:label>
+    <rdfs:domain rdf:resource="#RootCause"/>
+    <rdfs:range rdf:resource="#CorrectiveAction"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#preventedBy">
+    <rdfs:label>preventedBy</rdfs:label>
+    <rdfs:domain rdf:resource="#RootCause"/>
+    <rdfs:range rdf:resource="#PreventiveAction"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#generatesWarningReport">
+    <rdfs:label>generatesWarningReport</rdfs:label>
+    <rdfs:domain rdf:resource="#AnomalyEvent"/>
+    <rdfs:range rdf:resource="#WarningReport"/>
+  </owl:ObjectProperty>
+  <owl:DatatypeProperty rdf:about="#unit">
+    <rdfs:label>unit</rdfs:label>
+    <rdfs:domain rdf:resource="#QualityCharacteristic"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#faultCode">
+    <rdfs:label>faultCode</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionResult"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#severity">
+    <rdfs:label>severity</rdfs:label>
+    <rdfs:domain rdf:resource="#AnomalyEvent"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#evidenceText">
+    <rdfs:label>evidenceText</rdfs:label>
+    <rdfs:domain rdf:resource="#DiagnosticEvidence"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#reportSummary">
+    <rdfs:label>reportSummary</rdfs:label>
+    <rdfs:domain rdf:resource="#WarningReport"/>
+    <rdfs:range rdf:resource="xsd:string"/>
+  </owl:DatatypeProperty>
+  <owl:NamedIndividual rdf:about="#Rule-Curve-High">
+    <rdf:type rdf:resource="#QualityRule"/>
+    <rdfs:label>铆接曲线高于包络线</rdfs:label>
+    <rdfs:comment>故障代码或曲线摘要显示铆接曲线高于包络线。</rdfs:comment>
+  </owl:NamedIndividual>
+  <owl:NamedIndividual rdf:about="#Rule-Curve-Low">
+    <rdf:type rdf:resource="#QualityRule"/>
+    <rdfs:label>铆接曲线低于包络线</rdfs:label>
+    <rdfs:comment>故障代码或曲线摘要显示铆接曲线低于包络线。</rdfs:comment>
+  </owl:NamedIndividual>
+  <owl:NamedIndividual rdf:about="#Rule-Press-Stroke-High">
+    <rdf:type rdf:resource="#QualityRule"/>
+    <rdfs:label>冲压行程过大</rdfs:label>
+    <rdfs:comment>故障代码或过程字段显示冲压行程过大。</rdfs:comment>
+  </owl:NamedIndividual>
+  <owl:NamedIndividual rdf:about="#Rule-Prediction-Review">
+    <rdf:type rdf:resource="#QualityRule"/>
+    <rdfs:label>模型预测复核</rdfs:label>
+    <rdfs:comment>模型预测误差率或异常概率超过复核阈值。</rdfs:comment>
+  </owl:NamedIndividual>
+</rdf:RDF>

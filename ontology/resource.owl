@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <owl:Ontology rdf:about="https://example.com/ontology/resource">
+    <rdfs:comment>Generated OWL2 module for resource.owl.</rdfs:comment>
+  </owl:Ontology>
+  <owl:Class rdf:about="#ProductionLine">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>ProductionLine</rdfs:label>
+    <rdfs:comment>Production line or manufacturing area.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Workstation">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Workstation</rdfs:label>
+    <rdfs:comment>Station inside a production line.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Equipment">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Equipment</rdfs:label>
+    <rdfs:comment>Equipment used to execute the process.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#MainEquipment">
+    <rdfs:subClassOf rdf:resource="#Equipment"/>
+    <rdfs:label>MainEquipment</rdfs:label>
+    <rdfs:comment>Main process equipment.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Robot">
+    <rdfs:subClassOf rdf:resource="#Equipment"/>
+    <rdfs:label>Robot</rdfs:label>
+    <rdfs:comment>Industrial robot.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Tooling">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Tooling</rdfs:label>
+    <rdfs:comment>Fixture, die, or tool.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Sensor">
+    <rdfs:subClassOf rdf:resource="#Equipment"/>
+    <rdfs:label>Sensor</rdfs:label>
+    <rdfs:comment>Sensor used for process monitoring.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#DigitalResource">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>DigitalResource</rdfs:label>
+    <rdfs:comment>Digital program, recipe, model, or interface.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Program">
+    <rdfs:subClassOf rdf:resource="#DigitalResource"/>
+    <rdfs:label>Program</rdfs:label>
+    <rdfs:comment>Process program.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Person">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Person</rdfs:label>
+    <rdfs:comment>Human or account subject.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Role">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Role</rdfs:label>
+    <rdfs:comment>Engineering, quality, or operation role.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Qualification">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Qualification</rdfs:label>
+    <rdfs:comment>Qualification or authorization.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#Responsibility">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>Responsibility</rdfs:label>
+    <rdfs:comment>Responsibility definition.</rdfs:comment>
+  </owl:Class>
+  <owl:ObjectProperty rdf:about="#containsWorkstation">
+    <rdfs:label>containsWorkstation</rdfs:label>
+    <rdfs:domain rdf:resource="#ProductionLine"/>
+    <rdfs:range rdf:resource="#Workstation"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#configuredWith">
+    <rdfs:label>configuredWith</rdfs:label>
+    <rdfs:domain rdf:resource="#Workstation"/>
+    <rdfs:range rdf:resource="#Equipment"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#runsProgram">
+    <rdfs:label>runsProgram</rdfs:label>
+    <rdfs:domain rdf:resource="#Equipment"/>
+    <rdfs:range rdf:resource="#Program"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#usesEquipment">
+    <rdfs:label>usesEquipment</rdfs:label>
+    <rdfs:domain rdf:resource="#ProcessStep"/>
+    <rdfs:range rdf:resource="#Equipment"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#performedBy">
+    <rdfs:label>performedBy</rdfs:label>
+    <rdfs:domain rdf:resource="#InspectionProcess"/>
+    <rdfs:range rdf:resource="#Person"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasRole">
+    <rdfs:label>hasRole</rdfs:label>
+    <rdfs:domain rdf:resource="#Person"/>
+    <rdfs:range rdf:resource="#Role"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasQualification">
+    <rdfs:label>hasQualification</rdfs:label>
+    <rdfs:domain rdf:resource="#Person"/>
+    <rdfs:range rdf:resource="#Qualification"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasResponsibility">
+    <rdfs:label>hasResponsibility</rdfs:label>
+    <rdfs:domain rdf:resource="#Role"/>
+    <rdfs:range rdf:resource="#Responsibility"/>
+  </owl:ObjectProperty>
+</rdf:RDF>

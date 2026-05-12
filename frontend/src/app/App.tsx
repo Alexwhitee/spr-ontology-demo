@@ -1,20 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Database, GitBranch, Network, PanelLeftClose, PanelLeftOpen, PencilLine, Route } from "lucide-react";
+import { Activity, Boxes, ClipboardCheck, Database, FileCode2, GitBranch, Network, PanelLeftClose, PanelLeftOpen, PencilLine, Radar, Route, ShieldCheck, Siren } from "lucide-react";
 import { Chart } from "../components/Chart";
 import { HierarchyLinkageView } from "../features/hierarchy-linkage/HierarchyLinkageView";
+import { Owl2WorkbenchView } from "../features/owl2-workbench/Owl2WorkbenchView";
 import { OntologyEditorView } from "../features/ontology-editor/OntologyEditorView";
 import { SprOntologyView } from "../features/spr-ontology/SprOntologyView";
 import { TopOntologyView } from "../features/top-ontology/TopOntologyView";
-import { buildAppShellClassName } from "./appLayoutState";
+import { buildAppShellClassName, resolveOwl2ModeForView, type Owl2BusinessView } from "./appLayoutState";
 import { loadDataset } from "../lib/data";
 import type { DemoDataset } from "../types/demo";
 
-type ViewKey = "top" | "spr" | "linkage" | "editor";
+type ViewKey = "top" | "spr" | "linkage" | Owl2BusinessView | "editor";
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Network }> = [
   { key: "top", label: "顶层工艺本体", icon: Network },
   { key: "spr", label: "SPR本体", icon: GitBranch },
   { key: "linkage", label: "层级联动", icon: Route },
+  { key: "owl2", label: "OWL2工作台", icon: FileCode2 },
+  { key: "owl2-rules", label: "规则库", icon: ShieldCheck },
+  { key: "owl2-detect", label: "检测模型", icon: Activity },
+  { key: "owl2-root", label: "根因分析", icon: Radar },
+  { key: "owl2-report", label: "预警报告", icon: Siren },
+  { key: "owl2-knowledge", label: "规则复核", icon: ClipboardCheck },
   { key: "editor", label: "在线编辑", icon: PencilLine }
 ];
 
@@ -79,10 +86,15 @@ export default function App() {
         {activeView === "top" && <TopOntologyView dataset={dataset} />}
         {activeView === "spr" && <SprOntologyView dataset={dataset} />}
         {activeView === "linkage" && <HierarchyLinkageView dataset={dataset} />}
+        {isOwl2BusinessView(activeView) && <Owl2WorkbenchView dataset={dataset} initialMode={resolveOwl2ModeForView(activeView)} />}
         {activeView === "editor" && <OntologyEditorView dataset={dataset} />}
       </main>
     </div>
   );
+}
+
+function isOwl2BusinessView(view: ViewKey): view is Owl2BusinessView {
+  return view === "owl2" || view === "owl2-rules" || view === "owl2-detect" || view === "owl2-root" || view === "owl2-report" || view === "owl2-knowledge";
 }
 
 function TopBar({ dataset }: { dataset: DemoDataset }) {
@@ -109,7 +121,7 @@ function OverviewStrip({ dataset, activeView, onNavigate }: { dataset: DemoDatas
   return (
     <section className="overview-strip">
       <div className="overview-copy">
-        <strong>{activeView === "linkage" ? "当前重点：双向映射与路径追踪" : activeView === "top" ? "当前重点：顶层抽象分类体系" : "当前重点：SPR 细粒度类与字段承载"}</strong>
+        <strong>{activeView === "linkage" ? "当前重点：双向映射与路径追踪" : activeView === "top" ? "当前重点：顶层抽象分类体系" : activeView === "owl2" ? "当前重点：OWL2 本体驱动闭环" : "当前重点：SPR 细粒度类与字段承载"}</strong>
         <span>主表 {metrics.mainRecords} 条，RIP_ROP {metrics.ripRopRecords} 条，58 个字段映射均进入显式本体结构。</span>
       </div>
       <div className="overview-metrics">

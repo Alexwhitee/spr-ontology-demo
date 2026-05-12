@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <owl:Ontology rdf:about="https://example.com/ontology/spr">
+    <rdfs:comment>Generated OWL2 module for spr.owl.</rdfs:comment>
+  </owl:Ontology>
+  <owl:Class rdf:about="#SPRProcess">
+    <rdfs:subClassOf rdf:resource="#ManufacturingProcess"/>
+    <rdfs:label>SPRProcess</rdfs:label>
+    <rdfs:comment>SPR process extension.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRProcessRecord">
+    <rdfs:subClassOf rdf:resource="#OnlineProcessRecord"/>
+    <rdfs:label>SPRProcessRecord</rdfs:label>
+    <rdfs:comment>SPR online process record.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRConnectionPoint">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>SPRConnectionPoint</rdfs:label>
+    <rdfs:comment>SPR connection point.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRRivet">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>SPRRivet</rdfs:label>
+    <rdfs:comment>SPR rivet.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRDie">
+    <rdfs:subClassOf rdf:resource="#Tooling"/>
+    <rdfs:label>SPRDie</rdfs:label>
+    <rdfs:comment>SPR die or rivet die.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRProgram">
+    <rdfs:subClassOf rdf:resource="#Program"/>
+    <rdfs:label>SPRProgram</rdfs:label>
+    <rdfs:comment>SPR process program.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRParameterSet">
+    <rdfs:subClassOf rdf:resource="#ParameterSet"/>
+    <rdfs:label>SPRParameterSet</rdfs:label>
+    <rdfs:comment>SPR parameter set.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRCurveData">
+    <rdfs:subClassOf rdf:resource="#CurveData"/>
+    <rdfs:label>SPRCurveData</rdfs:label>
+    <rdfs:comment>SPR curve data.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPREnvelopeCurve">
+    <rdfs:subClassOf rdf:resource="#EnvelopeCurve"/>
+    <rdfs:label>SPREnvelopeCurve</rdfs:label>
+    <rdfs:comment>SPR envelope curve.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRInspectionProcess">
+    <rdfs:subClassOf rdf:resource="#InspectionProcess"/>
+    <rdfs:label>SPRInspectionProcess</rdfs:label>
+    <rdfs:comment>SPR inspection process.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRInspectionResult">
+    <rdfs:subClassOf rdf:resource="#InspectionResult"/>
+    <rdfs:label>SPRInspectionResult</rdfs:label>
+    <rdfs:comment>SPR inspection result.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRDefectPattern">
+    <rdfs:subClassOf rdf:resource="#DefectPattern"/>
+    <rdfs:label>SPRDefectPattern</rdfs:label>
+    <rdfs:comment>SPR defect pattern.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#SPRRootCause">
+    <rdfs:subClassOf rdf:resource="#RootCause"/>
+    <rdfs:label>SPRRootCause</rdfs:label>
+    <rdfs:comment>SPR root cause.</rdfs:comment>
+  </owl:Class>
+</rdf:RDF>

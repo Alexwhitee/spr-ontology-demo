@@ -28,3 +28,12 @@
 8. 异常规则解释。
 9. 待确认字段的保守建模。
 10. Cloudflare 部署和后续 RDF/OWL、图数据库、AI 问答扩展。
+
+## OWL2 + LLM 演示补充
+
+建议在 5 分钟和 10 分钟版本中加入下面 4 个动作：
+
+1. 打开“检测模型”页面，选择一条异常记录，点击检测按钮，说明前端调用 Worker `/api/detect/run`，由 Worker 读取 LLM 环境变量完成真实模型检测。
+2. 切到“根因分析”和“预警报告”页面，展示检测结果如何继续进入 `/api/root-cause/analyze` 和 `/api/reports/warning`，并沿 OWL2 路径落到 `AnomalyEvent`、`RootCause`、`WarningReport`。
+3. 打开“规则复核”页面，粘贴专家文档片段，调用 `/api/knowledge/extract-rules` 生成候选规则；输入管理员 token 后审批候选。
+4. 点击发布，把 approved 候选写入新的本体版本，再导出 `/api/ontology/owl`，展示新增 QualityRule 个体已经进入 OWL2 文件。

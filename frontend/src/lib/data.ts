@@ -1,5 +1,15 @@
 import type { DemoDataset, OntologyDocument, OntologyOperation, ProcessRecord } from "../types/demo";
 import { validateOntologyDocument } from "../../../shared/ontology";
+import type {
+  DetectionRequest,
+  DetectionResult,
+  RootCauseAnalysis,
+  RuleExtractionCandidate,
+  RuleExtractionRequest,
+  RuleExtractionResponse,
+  RuleReviewStatus,
+  WarningReport
+} from "../../../shared/ontology-service";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const DATA_MODE = import.meta.env.VITE_DATA_MODE as string | undefined;
@@ -64,6 +74,57 @@ export async function restoreOntologyVersion(versionId: string, token: string): 
   return readOntologyWriteResponse(response);
 }
 
+export async function runRemoteDetection(request: Omit<DetectionRequest, "llm">): Promise<DetectionResult> {
+  return postJson("/api/detect/run", request);
+}
+
+export async function analyzeRemoteRootCause(request: { recordId?: string; anomalyEventId?: string; detection?: DetectionResult }): Promise<RootCauseAnalysis> {
+  return postJson("/api/root-cause/analyze", request);
+}
+
+export async function createRemoteWarningReport(request: { recordId?: string; detection?: DetectionResult; rootCause?: RootCauseAnalysis }): Promise<WarningReport> {
+  return postJson("/api/reports/warning", request);
+}
+
+export async function extractKnowledgeRules(request: RuleExtractionRequest): Promise<RuleExtractionResponse> {
+  return postJson("/api/knowledge/extract-rules", request);
+}
+
+export async function loadKnowledgeRuleCandidates(): Promise<RuleExtractionCandidate[]> {
+  const response = await fetch(apiUrl("/api/knowledge/rule-candidates"));
+  const value = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  return value as RuleExtractionCandidate[];
+}
+
+export async function reviewKnowledgeRuleCandidate(candidateId: string, reviewStatus: RuleReviewStatus, token: string): Promise<RuleExtractionCandidate> {
+  const response = await fetch(apiUrl(`/api/knowledge/rule-candidates/${encodeURIComponent(candidateId)}/review`), {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ reviewStatus })
+  });
+  const value = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  return value as RuleExtractionCandidate;
+}
+
+export async function publishKnowledgeRules(candidateIds: string[], token: string): Promise<{ versionId: string; publishedRules: Array<{ id: string; name: string; candidateId?: string }>; document?: OntologyDocument }> {
+  const response = await fetch(apiUrl("/api/knowledge/publish-rules"), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ candidateIds })
+  });
+  const value = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  return value as { versionId: string; publishedRules: Array<{ id: string; name: string; candidateId?: string }>; document?: OntologyDocument };
+}
+
+export async function loadRemoteOwl(): Promise<string> {
+  const response = await fetch(apiUrl("/api/ontology/owl"));
+  if (!response.ok) throw new Error(`无法导出 OWL2：${response.status}`);
+  return response.text();
+}
+
 function apiUrl(path: string): string {
   return DATA_MODE === "api" && API_BASE ? `${API_BASE}${path}` : path;
 }
@@ -73,6 +134,17 @@ function authHeaders(token: string): HeadersInit {
     authorization: `Bearer ${token}`,
     "content-type": "application/json"
   };
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const value = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(value.error ?? `Worker API 请求失败：${response.status}`);
+  return value as T;
 }
 
 async function readOntologyWriteResponse(response: Response): Promise<{ versionId: string; document: OntologyDocument }> {

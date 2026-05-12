@@ -67,3 +67,21 @@ npm run cf:deploy:worker
 ```
 
 在线编辑写接口需要先配置 D1 和 `ADMIN_TOKEN`，详见 [docs/deployment.md](docs/deployment.md)。
+
+## OWL2 + LLM 闭环更新
+
+本轮 OWL2 工作台已经补齐真实 Worker 链路：
+
+- `/api/detect/run` 默认在 Worker 侧根据 `LLM_API_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 自动选择 LLM；未配置时降级到本体规则。
+- `/api/knowledge/extract-rules` 支持 OpenAI-compatible Chat Completions 抽取专家文档规则候选，并在配置 D1 时写入复核队列。
+- `/api/knowledge/rule-candidates`、`PATCH /api/knowledge/rule-candidates/:id/review`、`POST /api/knowledge/publish-rules` 支持候选列表、复核持久化和发布新本体版本。
+- `/api/ontology/owl` 会合并已发布的 `spr-rule` 节点导出 QualityRule 个体；`npm run ontology:validate` 会执行更严格的 OWL 引用完整性校验。
+
+LLM 环境变量只配置在运行环境或 Worker Secret 中，不要写入源码：
+
+```env
+LLM_API_BASE_URL=https://your-llm-host/v1/chat/completions
+LLM_API_KEY=<set as secret>
+LLM_MODEL=<openai-compatible-model>
+LLM_TIMEOUT_MS=60000
+```

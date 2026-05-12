@@ -6,13 +6,15 @@
   "scripts": {
     "data:build": "tsx scripts/build-demo-dataset.ts",
     "data:validate": "tsx scripts/validate-demo-data.ts",
+    "ontology:generate": "tsx scripts/generate-owl-modules.ts",
+    "ontology:validate": "tsx scripts/validate-ontology.ts",
     "test": "vitest run",
     "dev": "vite --host 0.0.0.0 --config frontend/vite.config.ts",
     "worker:dev": "wrangler dev --config backend/wrangler.toml",
     "cf:setup": "node scripts/setup-cloudflare-worker.mjs",
     "cf:deploy:worker": "wrangler deploy --config backend/wrangler.toml",
     "cf:deploy:pages": "npm run build && wrangler pages deploy frontend/dist --project-name spr-ontology-demo",
-    "build": "npm run data:build && npm run data:validate && vite build --config frontend/vite.config.ts && tsc -p backend/tsconfig.json --noEmit",
+    "build": "npm run data:build && npm run data:validate && npm run ontology:generate && vite build --config frontend/vite.config.ts && tsc -p backend/tsconfig.json --noEmit",
     "preview": "vite preview --host 0.0.0.0 --config frontend/vite.config.ts"
   },
   "dependencies": {

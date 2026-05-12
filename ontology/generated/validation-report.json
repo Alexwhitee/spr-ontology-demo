@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "errors": [],
+  "warnings": [
+    {
+      "code": "FIELD_NEEDS_CONFIRMATION",
+      "message": "以下字段含义仍需业务确认：carbody_id、error_rate、pre、车身标识、输出、铆钉计数器、JIC dVal、RRC启用、RRC 铆接曲线偏差、RRC基准曲线偏差、PECV2 activated、Rivet head height positive limit、Rivet head height negative limit、Actual end force"
+    }
+  ],
+  "metrics": {
+    "classes": 70,
+    "objectProperties": 40,
+    "dataProperties": 15,
+    "rules": 4
+  }
+}

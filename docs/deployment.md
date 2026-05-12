@@ -132,3 +132,34 @@ npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
 ```http
 Authorization: Bearer <ADMIN_TOKEN>
 ```
+
+## LLM 与规则发布配置
+
+Worker 支持 OpenAI-compatible Chat Completions。生产环境请使用 Wrangler Secret 或平台环境变量配置，不要把密钥写入仓库：
+
+```bash
+npx wrangler secret put LLM_API_KEY --config backend/wrangler.toml
+npx wrangler secret put ADMIN_TOKEN --config backend/wrangler.toml
+```
+
+非密钥变量可放在 `backend/wrangler.toml` 的 `[vars]` 或部署平台变量中：
+
+```toml
+LLM_API_BASE_URL = "https://your-llm-host/v1/chat/completions"
+LLM_MODEL = "your-model-name"
+LLM_TIMEOUT_MS = "60000"
+```
+
+新增 API：
+
+- `GET /api/ontology/owl`
+- `GET /api/ontology/validate`
+- `POST /api/detect/run`
+- `POST /api/root-cause/analyze`
+- `POST /api/reports/warning`
+- `POST /api/knowledge/extract-rules`
+- `GET /api/knowledge/rule-candidates`
+- `PATCH /api/knowledge/rule-candidates/:id/review`
+- `POST /api/knowledge/publish-rules`
+
+`review` 和 `publish-rules` 属于写接口，需要 `Authorization: Bearer <ADMIN_TOKEN>`。发布成功后会创建新的 `ontology_versions` 记录，并更新 `ontology_current` 指针。
