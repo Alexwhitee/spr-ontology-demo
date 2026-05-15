@@ -21,10 +21,11 @@ import {
   reviewKnowledgeRuleCandidate,
   runRemoteDetection
 } from "../../lib/data";
-import type { DemoDataset, GraphNode } from "../../types/demo";
+import type { DemoDataset, GraphNode, ProcessRecord } from "../../types/demo";
 import {
   buildOntologyWorkbenchGraph,
   exportOwlXml,
+  exportTopOntologyOwlXml,
   listOntologyClasses,
   listOntologyProperties,
   listQualityRules,
@@ -35,6 +36,18 @@ import {
   type RuleReviewStatus,
   type WarningReport
 } from "../../../../shared/ontology-service";
+import {
+  buildDetectionFlowSteps,
+  buildDetectionTraceSteps,
+  buildRecordInputSummary,
+  buildRecordOptionLabel,
+  statusText,
+  summarizeDetectionOutcome,
+  type DetectionApiCallKey,
+  type DetectionApiRuntimeCall,
+  type DetectionRequestPhase,
+  type FlowStepStatus
+} from "./owl2WorkbenchState";
 
 export type WorkbenchMode = "structure" | "rules" | "detect" | "root" | "report" | "knowledge";
 type RuleCandidate = RuleExtractionResponse["candidates"][number];
@@ -59,7 +72,10 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   const [rootCause, setRootCause] = useState<RootCauseAnalysis | null>(null);
   const [report, setReport] = useState<WarningReport | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [detectionPhase, setDetectionPhase] = useState<DetectionRequestPhase>("idle");
   const [detectError, setDetectError] = useState<string | null>(null);
+  const [apiCalls, setApiCalls] = useState<Partial<Record<DetectionApiCallKey, DetectionApiRuntimeCall>>>({});
+  const [selectedTraceKey, setSelectedTraceKey] = useState("input");
   const [sourceDocument, setSourceDocument] = useState("expert-sop.md");
   const [knowledgeText, setKnowledgeText] = useState("铆接曲线高于包络线时，需要复核参数集版本并检查铆模状态。");
   const [extraction, setExtraction] = useState<RuleExtractionResponse | null>(null);
@@ -82,10 +98,12 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
       ? [selectedRecord, ...firstRecords]
       : firstRecords;
   }, [dataset.records, recordId]);
+  const selectedRecord = useMemo(() => dataset.records.find((record) => record.id === recordId), [dataset.records, recordId]);
   const selected = graph.nodes.find((node) => node.id === selectedId) ?? graph.nodes[0];
   const selectedClass = classes.find((item) => item.id === selected?.id);
   const selectedRule = rules.find((item) => item.id === selected?.id);
   const owlUrl = useMemo(() => URL.createObjectURL(new Blob([exportOwlXml(dataset)], { type: "application/rdf+xml" })), [dataset]);
+  const topOwlUrl = useMemo(() => URL.createObjectURL(new Blob([exportTopOntologyOwlXml()], { type: "application/rdf+xml" })), []);
 
   useEffect(() => {
     if (!recordId && defaultRecordId) setRecordId(defaultRecordId);
@@ -96,6 +114,9 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
     setRootCause(null);
     setReport(null);
     setDetectError(null);
+    setDetectionPhase("idle");
+    setApiCalls({});
+    setSelectedTraceKey("input");
   }, [recordId]);
 
   useEffect(() => {
@@ -109,6 +130,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   }, []);
 
   useEffect(() => () => URL.revokeObjectURL(owlUrl), [owlUrl]);
+  useEffect(() => () => URL.revokeObjectURL(topOwlUrl), [topOwlUrl]);
 
   const highlightedIds = useMemo(() => {
     if (mode === "detect") return ["SPRProcessRecord", "SPRInspectionProcess", "DetectionModel", "ModelPredictionResult", "InspectionResult", "AnomalyEvent"];
@@ -121,19 +143,84 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   async function handleRunDetection() {
     if (!recordId) return;
     setIsDetecting(true);
+    setDetectionPhase("detecting");
     setDetectError(null);
+    setDetection(null);
+    setRootCause(null);
+    setReport(null);
+    setApiCalls({});
+    setSelectedTraceKey("detect");
+    setMode("detect");
     try {
-      const nextDetection = await runRemoteDetection({ recordId, includeCurveSummary: true });
-      const nextRootCause = await analyzeRemoteRootCause({ detection: nextDetection });
-      const nextReport = await createRemoteWarningReport({ detection: nextDetection, rootCause: nextRootCause });
+      const detectRequest = { recordId, includeCurveSummary: true };
+      const nextDetection = await runTrackedApiCall("detect", "检测 API", "/api/detect/run", detectRequest, () => runRemoteDetection(detectRequest));
       setDetection(nextDetection);
+      setDetectionPhase("analyzing");
+      const rootRequest = { detection: nextDetection };
+      const nextRootCause = await runTrackedApiCall("root", "根因分析 API", "/api/root-cause/analyze", rootRequest, () => analyzeRemoteRootCause(rootRequest));
       setRootCause(nextRootCause);
+      setDetectionPhase("reporting");
+      const reportRequest = { detection: nextDetection, rootCause: nextRootCause };
+      const nextReport = await runTrackedApiCall("report", "预警报告 API", "/api/reports/warning", reportRequest, () => createRemoteWarningReport(reportRequest));
       setReport(nextReport);
-      setMode("detect");
+      setDetectionPhase("complete");
+      setSelectedTraceKey("final");
     } catch (error) {
       setDetectError(error instanceof Error ? error.message : String(error));
+      setDetectionPhase("error");
     } finally {
       setIsDetecting(false);
+    }
+  }
+
+  async function runTrackedApiCall<T>(
+    key: DetectionApiCallKey,
+    title: string,
+    endpoint: string,
+    request: unknown,
+    runner: () => Promise<T>
+  ): Promise<T> {
+    const startedAt = new Date().toISOString();
+    const started = performance.now();
+    setSelectedTraceKey(key);
+    setApiCalls((current) => ({
+      ...current,
+      [key]: {
+        key,
+        title,
+        method: "POST",
+        endpoint,
+        status: "running",
+        request,
+        startedAt
+      }
+    }));
+
+    try {
+      const response = await runner();
+      setApiCalls((current) => ({
+        ...current,
+        [key]: {
+          ...(current[key] ?? { key, title, method: "POST", endpoint, request }),
+          status: "done",
+          response,
+          finishedAt: new Date().toISOString(),
+          durationMs: Math.round(performance.now() - started)
+        }
+      }));
+      return response;
+    } catch (error) {
+      setApiCalls((current) => ({
+        ...current,
+        [key]: {
+          ...(current[key] ?? { key, title, method: "POST", endpoint, request }),
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+          finishedAt: new Date().toISOString(),
+          durationMs: Math.round(performance.now() - started)
+        }
+      }));
+      throw error;
     }
   }
 
@@ -201,6 +288,10 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
           <h2>本体驱动检测、根因与预警闭环</h2>
         </div>
         <div className="page-actions">
+          <a className="icon-text-button" href={topOwlUrl} download="top-ontology.owl">
+            <FileCode2 size={16} />
+            <span>导出顶层OWL2</span>
+          </a>
           <a className="icon-text-button" href={owlUrl} download="spr-ontology-current.owl">
             <FileCode2 size={16} />
             <span>导出 OWL2</span>
@@ -241,7 +332,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
           <GitBranch size={16} />
           <select value={recordId} onChange={(event) => setRecordId(event.target.value)}>
             {recordOptions.map((record) => (
-              <option key={record.id} value={record.id}>{record.id} / {record.faultCode?.replace(/^DDC:\s*/, "") || record.predictionCategory || "未触发明确故障"}</option>
+              <option key={record.id} value={record.id}>{buildRecordOptionLabel(record)}</option>
             ))}
           </select>
         </label>
@@ -303,7 +394,22 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
 
       {mode === "structure" && <StructurePanel classes={classes} properties={properties} />}
       {mode === "rules" && <RulesPanel rules={rules} onSelect={setSelectedId} />}
-      {mode === "detect" && <DetectionPanel recordId={recordId} detection={detection} isRunning={isDetecting} error={detectError} onRun={handleRunDetection} />}
+      {mode === "detect" && (
+        <DetectionPanel
+          record={selectedRecord}
+          recordId={recordId}
+          phase={detectionPhase}
+          detection={detection}
+          rootCause={rootCause}
+          report={report}
+          apiCalls={apiCalls}
+          selectedTraceKey={selectedTraceKey}
+          isRunning={isDetecting}
+          error={detectError}
+          onRun={handleRunDetection}
+          onSelectTrace={setSelectedTraceKey}
+        />
+      )}
       {mode === "root" && <RootCausePanel rootCause={rootCause} />}
       {mode === "report" && <ReportPanel report={report} />}
       {mode === "knowledge" && (
@@ -377,54 +483,216 @@ function RulesPanel({ rules, onSelect }: { rules: ReturnType<typeof listQualityR
 }
 
 function DetectionPanel({
+  record,
   recordId,
+  phase,
   detection,
+  rootCause,
+  report,
+  apiCalls,
+  selectedTraceKey,
   isRunning,
   error,
-  onRun
+  onRun,
+  onSelectTrace
 }: {
+  record: ProcessRecord | undefined;
   recordId: string;
+  phase: DetectionRequestPhase;
   detection: DetectionResult | null;
+  rootCause: RootCauseAnalysis | null;
+  report: WarningReport | null;
+  apiCalls: Partial<Record<DetectionApiCallKey, DetectionApiRuntimeCall>>;
+  selectedTraceKey: string;
   isRunning: boolean;
   error: string | null;
   onRun: () => void;
+  onSelectTrace: (key: string) => void;
 }) {
+  const summary = summarizeDetectionOutcome(detection);
+  const flowSteps = buildDetectionFlowSteps({ phase, recordId, detection, rootCause, report });
+  const traceSteps = buildDetectionTraceSteps({ phase, recordId, record, detection, rootCause, report, calls: apiCalls });
+  const activeTrace = traceSteps.find((step) => step.key === selectedTraceKey) ?? traceSteps[0];
+  const inputSummary = buildRecordInputSummary(record);
+  const primaryRootCause = rootCause?.candidates[0];
+
   return (
-    <div className="semantic-panels">
-      <section className="panel semantic-panel-wide">
+    <div className="detect-experience">
+      <section className="panel detect-command-center">
         <div className="section-heading">
-          <h3>检测流程</h3>
-          <span>{detection?.prediction.severity ?? "待运行"}</span>
+          <h3>检测 API 全流程</h3>
+          <span>{phase === "idle" ? "待运行" : phase === "complete" ? "已完成" : phase === "error" ? "调用失败" : "运行中"}</span>
         </div>
-        <div className="action-row">
-          <button type="button" className="primary-action" onClick={onRun} disabled={isRunning || !recordId}>
-            {isRunning ? <Loader2 size={16} /> : <Activity size={16} />}
-            {isRunning ? "调用中" : "运行 /api/detect/run"}
+        <div className="detect-brief">
+          <div>
+            <span>输入</span>
+            <strong>{recordId || "未选择记录"}</strong>
+            <p>系统把这条过程记录的原始字段、曲线摘要和本体路径发给 Worker，由 Worker 调用模型或规则服务。</p>
+          </div>
+          <button type="button" className="primary-action detect-run-button" onClick={onRun} disabled={isRunning || !recordId}>
+            {isRunning ? <Loader2 size={18} /> : <Activity size={18} />}
+            {isRunning ? "正在执行全流程" : detection ? "重新运行全流程" : "运行检测全流程"}
           </button>
-          <span className="muted">当前记录：{recordId || "未选择"}</span>
         </div>
         {error && <p className="api-error">{error}</p>}
-        {detection ? (
-          <div className="semantic-timeline">
-            {["SPRProcessRecord", detection.inspectionProcessId, detection.modelInvocationId, detection.prediction.category, detection.anomalyEvent?.id ?? "no-anomaly"].map((item) => <span key={item}>{item}</span>)}
-          </div>
-        ) : (
-          <p className="muted">检测任务尚未运行。</p>
-        )}
+
+        <div className="api-flow">
+          {flowSteps.map((step, index) => (
+            <div key={step.key} className={`api-flow-step status-${step.status}`}>
+              <div className="step-marker">{step.status === "running" ? <Loader2 size={16} /> : step.status === "done" ? <CheckCircle2 size={16} /> : index + 1}</div>
+              <div>
+                <div className="step-heading">
+                  <strong>{step.title}</strong>
+                  <span>{statusText(step.status)}</span>
+                </div>
+                <p>{step.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
-      <section className="panel">
-        <h3>模型输出</h3>
-        {detection ? (
-          <>
-            <p className="large-number">{Math.round(detection.prediction.confidence * 100)}%</p>
-            <p>{detection.prediction.evidence.join("；")}</p>
-          </>
-        ) : (
-          <p className="muted">运行后显示模型预测、置信度和证据。</p>
-        )}
+
+      <section className="panel api-trace-panel">
+        <div className="section-heading">
+          <h3>透明调用台</h3>
+          <span>{traceSteps.filter((step) => step.status === "done").length}/{traceSteps.length} 已输出</span>
+        </div>
+        <div className="api-trace-layout">
+          <div className="api-trace-list" aria-label="API 调用阶段">
+            {traceSteps.map((step, index) => (
+              <button
+                key={step.key}
+                type="button"
+                className={activeTrace.key === step.key ? "active" : ""}
+                onClick={() => onSelectTrace(step.key)}
+              >
+                <span className={`trace-index status-${step.status}`}>{index + 1}</span>
+                <span>
+                  <strong>{step.title}</strong>
+                  <em>{step.endpoint ? `${step.method} ${step.endpoint}` : step.description}</em>
+                </span>
+                <small>{step.durationMs !== undefined ? `${step.durationMs}ms` : statusText(step.status)}</small>
+              </button>
+            ))}
+          </div>
+          <div className="api-trace-detail">
+            <div className="trace-detail-head">
+              <div>
+                <strong>{activeTrace.title}</strong>
+                <p>{activeTrace.description}</p>
+              </div>
+              <span className={`trace-status status-${activeTrace.status}`}>{statusText(activeTrace.status)}</span>
+            </div>
+            <div className="trace-meta">
+              <span>{activeTrace.endpoint ? `${activeTrace.method} ${activeTrace.endpoint}` : "本地输入/汇总"}</span>
+              {activeTrace.startedAt && <span>开始 {formatTraceTime(activeTrace.startedAt)}</span>}
+              {activeTrace.finishedAt && <span>结束 {formatTraceTime(activeTrace.finishedAt)}</span>}
+              {activeTrace.durationMs !== undefined && <span>耗时 {activeTrace.durationMs}ms</span>}
+            </div>
+            <div className="trace-io-grid">
+              <TraceBlock title="输入 Input" value={activeTrace.input} />
+              <TraceBlock title={activeTrace.error ? "错误 Error" : "输出 Output"} value={activeTrace.error ? { message: activeTrace.error } : activeTrace.output} emptyText="等待该阶段返回输出" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="detect-grid">
+        <section className="panel">
+          <div className="section-heading">
+            <h3>输入记录</h3>
+            <span>ProcessRecord</span>
+          </div>
+          <dl className="detail-grid detect-input-grid">
+            {inputSummary.map((item) => (
+              <div key={item.label}>
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section className="panel detection-result-panel">
+          <div className="section-heading">
+            <h3>模型判断</h3>
+            <span>{summary.modeLabel}</span>
+          </div>
+          <div className={`decision-meter severity-${detection?.prediction.severity ?? "idle"}`}>
+            <strong>{summary.confidenceLabel}</strong>
+            <span>{summary.categoryLabel}</span>
+          </div>
+          <p className="decision-copy">{summary.decision}</p>
+          <div className="evidence-stack">
+            {(detection?.prediction.evidence ?? ["运行后这里会显示模型使用了哪些字段、曲线或故障线索。"]).map((item) => (
+              <div key={item}>{item}</div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading">
+            <h3>根因输出</h3>
+            <span>{primaryRootCause ? `${Math.round(primaryRootCause.confidence * 100)}%` : "待生成"}</span>
+          </div>
+          {primaryRootCause ? (
+            <>
+              <strong className="result-title">{primaryRootCause.rootCause}</strong>
+              <p>{primaryRootCause.recommendation}</p>
+              <div className="mapping-chips">{primaryRootCause.evidence.map((item) => <span key={item}>{item}</span>)}</div>
+            </>
+          ) : (
+            <p className="muted">检测完成后，系统会把异常映射为候选根因和建议动作。</p>
+          )}
+        </section>
+
+        <section className="panel">
+          <div className="section-heading">
+            <h3>预警报告</h3>
+            <span>{report?.severity ?? "待生成"}</span>
+          </div>
+          {report ? (
+            <>
+              <strong className="result-title">{report.title}</strong>
+              <p>{report.summary}</p>
+              <div className="relation-list compact">{report.actions.map((action) => <div key={action}>{action}</div>)}</div>
+            </>
+          ) : (
+            <p className="muted">最后一步会生成可汇报的预警标题、摘要和复核动作。</p>
+          )}
+        </section>
+      </div>
+
+      <section className="panel semantic-path-panel">
+        <div className="section-heading">
+          <h3>本体路径</h3>
+          <span>OWL2 Trace</span>
+        </div>
+        <div className="semantic-timeline">
+          {(report?.ontologyPath ?? detection?.ontologyPath ?? ["SPRProcessRecord", "SPRInspectionProcess", "DetectionModel", "ModelPredictionResult", "InspectionResult", "AnomalyEvent"]).map((item) => <span key={item}>{item}</span>)}
+        </div>
       </section>
     </div>
   );
+}
+
+function TraceBlock({ title, value, emptyText = "暂无内容" }: { title: string; value: unknown; emptyText?: string }) {
+  return (
+    <div className="trace-block">
+      <div>{title}</div>
+      <pre>{formatTraceValue(value, emptyText)}</pre>
+    </div>
+  );
+}
+
+function formatTraceValue(value: unknown, emptyText: string): string {
+  if (value === undefined || value === null) return emptyText;
+  if (typeof value === "string") return value;
+  return JSON.stringify(value, null, 2);
+}
+
+function formatTraceTime(value: string): string {
+  return new Date(value).toLocaleTimeString("zh-CN", { hour12: false });
 }
 
 function RootCausePanel({ rootCause }: { rootCause: RootCauseAnalysis | null }) {
