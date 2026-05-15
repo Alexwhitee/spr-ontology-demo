@@ -33,7 +33,7 @@ export function TopOntologyView({ dataset }: Props) {
     <section className="ontology-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">Top-Level Ontology</span>
+          <span className="eyebrow">顶层工艺本体</span>
           <h2>顶层工艺本体是 SPR 的抽象承载层</h2>
         </div>
         <div className="page-actions">

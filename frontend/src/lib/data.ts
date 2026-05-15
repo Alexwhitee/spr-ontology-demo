@@ -10,6 +10,7 @@ import type {
   RuleReviewStatus,
   WarningReport
 } from "../../../shared/ontology-service";
+import { labelApiError } from "../i18n/zhCN";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const DATA_MODE = import.meta.env.VITE_DATA_MODE as string | undefined;
@@ -17,7 +18,7 @@ const DATA_MODE = import.meta.env.VITE_DATA_MODE as string | undefined;
 export async function loadDataset(): Promise<DemoDataset> {
   const url = DATA_MODE === "api" && API_BASE ? `${API_BASE}/api/dataset` : "/data/demo-dataset.json";
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`无法加载 Demo 数据：${response.status}`);
+  if (!response.ok) throw new Error(`无法加载演示数据：${response.status}`);
   return response.json() as Promise<DemoDataset>;
 }
 
@@ -93,7 +94,7 @@ export async function extractKnowledgeRules(request: RuleExtractionRequest): Pro
 export async function loadKnowledgeRuleCandidates(): Promise<RuleExtractionCandidate[]> {
   const response = await fetch(apiUrl("/api/knowledge/rule-candidates"));
   const value = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  if (!response.ok) throw new Error(labelApiError(value.error, response.status));
   return value as RuleExtractionCandidate[];
 }
 
@@ -104,7 +105,7 @@ export async function reviewKnowledgeRuleCandidate(candidateId: string, reviewSt
     body: JSON.stringify({ reviewStatus })
   });
   const value = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  if (!response.ok) throw new Error(labelApiError(value.error, response.status));
   return value as RuleExtractionCandidate;
 }
 
@@ -115,7 +116,7 @@ export async function publishKnowledgeRules(candidateIds: string[], token: strin
     body: JSON.stringify({ candidateIds })
   });
   const value = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(value.error ?? `Worker API 璇锋眰澶辫触锛?{response.status}`);
+  if (!response.ok) throw new Error(labelApiError(value.error, response.status));
   return value as { versionId: string; publishedRules: Array<{ id: string; name: string; candidateId?: string }>; document?: OntologyDocument };
 }
 
@@ -143,13 +144,13 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body)
   });
   const value = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(value.error ?? `Worker API 请求失败：${response.status}`);
+  if (!response.ok) throw new Error(labelApiError(value.error, response.status));
   return value as T;
 }
 
 async function readOntologyWriteResponse(response: Response): Promise<{ versionId: string; document: OntologyDocument }> {
   const body = await response.json().catch(() => ({})) as { details?: string[]; error?: string; versionId?: string; document?: unknown };
-  if (!response.ok) throw new Error(body?.details?.join?.("\n") ?? body?.error ?? `本体写入失败：${response.status}`);
+  if (!response.ok) throw new Error(body?.details?.join?.("\n") ?? labelApiError(body?.error, response.status));
   if (!body.versionId) throw new Error("Worker 写入响应缺少 versionId，请确认已部署最新 Worker。");
   return {
     versionId: body.versionId,

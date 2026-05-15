@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { LocateFixed, Route } from "lucide-react";
 import { OntologyGraph } from "../../components/OntologyGraph";
+import { labelMappingRelation, labelRelation } from "../../i18n/zhCN";
 import type { DemoDataset, GraphEdge, GraphNode, SprOntologyNode, TopOntologyNode } from "../../types/demo";
 
 export function HierarchyLinkageView({ dataset }: { dataset: DemoDataset }) {
@@ -33,7 +34,7 @@ export function HierarchyLinkageView({ dataset }: { dataset: DemoDataset }) {
     <section className="ontology-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">Hierarchy Linkage</span>
+          <span className="eyebrow">层级联动</span>
           <h2>点击任一层，即可看到抽象类与 SPR 类的双向映射</h2>
         </div>
       </div>
@@ -74,8 +75,8 @@ export function HierarchyLinkageView({ dataset }: { dataset: DemoDataset }) {
       <div className="path-board">
         <section className="panel">
           <div className="section-heading">
-            <h3><Route size={18} /> Top → SPR 路径追踪</h3>
-            <span>{activeMapping?.relation ?? "未选择映射"}</span>
+            <h3><Route size={18} /> 顶层到 SPR 路径追踪</h3>
+            <span>{labelMappingRelation(activeMapping?.relation)}</span>
           </div>
           <div className="path-line rich">
             {(activePath?.top_path ?? topPath(selectedTopId, dataset.top_ontology.nodes)).map((id) => (
@@ -101,7 +102,7 @@ export function HierarchyLinkageView({ dataset }: { dataset: DemoDataset }) {
             <dt>顶层父类</dt>
             <dd>{dataset.top_ontology.nodes[selectedSpr?.parent_top_id]?.name}</dd>
             <dt>继承关系</dt>
-            <dd>{selectedSpr?.inheritance_relation}</dd>
+            <dd>{labelRelation(selectedSpr?.inheritance_relation)}</dd>
           </dl>
         </section>
       </div>

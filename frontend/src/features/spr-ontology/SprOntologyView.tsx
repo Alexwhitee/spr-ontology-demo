@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Maximize2, Minimize2, Search } from "lucide-react";
 import { OntologyGraph } from "../../components/OntologyGraph";
 import { buildGraphWorkbenchClassName } from "../../app/appLayoutState";
+import { labelRelation, labelSprLayer } from "../../i18n/zhCN";
 import type { DemoDataset, FieldMapping, GraphEdge, GraphNode, ProcessRecord, SprOntologyNode } from "../../types/demo";
 
 type LayerFilter = "all" | SprOntologyNode["layer"];
@@ -28,7 +29,7 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
     <section className="ontology-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">SPR Ontology</span>
+          <span className="eyebrow">SPR 工艺本体</span>
           <h2>SPR 本体显式继承顶层工艺类</h2>
         </div>
         <div className="page-actions">
@@ -73,14 +74,14 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
             <span>顶层工艺本体</span>
             <span>{parentTop?.domain}</span>
             <strong>{parentTop?.name}</strong>
-            <span>{selected.inheritance_relation}</span>
+            <span>{labelRelation(selected.inheritance_relation)}</span>
             <strong>{selected.name}</strong>
           </div>
           <dl className="detail-grid">
-            <dt>parent_top_id</dt>
+            <dt>顶层父类 ID</dt>
             <dd>{selected.parent_top_id}</dd>
             <dt>继承关系</dt>
-            <dd>{selected.inheritance_relation}</dd>
+            <dd>{labelRelation(selected.inheritance_relation)}</dd>
             <dt>来源</dt>
             <dd>{selected.source_doc}</dd>
             <dt>实例数</dt>
@@ -115,7 +116,7 @@ export function SprOntologyView({ dataset }: { dataset: DemoDataset }) {
           <div className="relation-list compact">
             {selected.relations.map((id) => {
               const relation = dataset.spr_ontology.relations.find((item) => item.id === id);
-              return relation ? <div key={id}>{relation.source} → <strong>{relation.label}</strong> → {relation.target}</div> : null;
+              return relation ? <div key={id}>{relation.source} → <strong>{labelRelation(relation.label)}</strong> → {relation.target}</div> : null;
             })}
           </div>
         </InfoPanel>
@@ -150,13 +151,7 @@ function sprGraph(dataset: DemoDataset, layer: LayerFilter): { nodes: GraphNode[
 }
 
 function layerLabel(layer: LayerFilter) {
-  return {
-    all: "全部",
-    "spr-core": "核心类",
-    "spr-extension": "扩展类",
-    "spr-data": "数据类",
-    "spr-rule": "规则类"
-  }[layer];
+  return labelSprLayer(layer);
 }
 
 function findRelatedRecords(records: ProcessRecord[], node: SprOntologyNode): ProcessRecord[] {

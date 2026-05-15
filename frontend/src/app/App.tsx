@@ -38,16 +38,16 @@ export default function App() {
   }, []);
 
   if (error) return <div className="fatal">数据加载失败：{error}</div>;
-  if (!dataset) return <div className="loading">SPR Demo 数据加载中</div>;
+  if (!dataset) return <div className="loading">SPR 演示数据加载中</div>;
 
   return (
     <div className={buildAppShellClassName(isSidebarCollapsed)}>
       <aside className="sidebar">
         <div className="sidebar-topline">
-          <div className="brand" title="SPR 本体 Demo">
+          <div className="brand" title="SPR 本体演示系统">
             <Boxes size={30} />
             <div>
-              <strong>SPR 本体 Demo</strong>
+              <strong>SPR 本体演示系统</strong>
               <span>顶层工艺本体 × SPR 细粒度工艺</span>
             </div>
           </div>
@@ -101,7 +101,7 @@ function TopBar({ dataset }: { dataset: DemoDataset }) {
   return (
     <header className="topbar">
       <div>
-        <span className="eyebrow">SPR Ontology Demo</span>
+        <span className="eyebrow">SPR 本体演示系统</span>
         <h1>本体</h1>
       </div>
       <div className="topbar-meta">

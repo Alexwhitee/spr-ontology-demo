@@ -48,6 +48,7 @@ import {
   type DetectionRequestPhase,
   type FlowStepStatus
 } from "./owl2WorkbenchState";
+import { labelReviewStatus } from "../../i18n/zhCN";
 
 export type WorkbenchMode = "structure" | "rules" | "detect" | "root" | "report" | "knowledge";
 type RuleCandidate = RuleExtractionResponse["candidates"][number];
@@ -284,7 +285,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
     <section className="ontology-page owl2-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">OWL2 Semantic Workbench</span>
+          <span className="eyebrow">OWL2 语义工作台</span>
           <h2>本体驱动检测、根因与预警闭环</h2>
         </div>
         <div className="page-actions">
@@ -448,7 +449,7 @@ function StructurePanel({ classes, properties }: { classes: ReturnType<typeof li
           {(["core.owl", "process.owl", "resource.owl", "quality.owl", "model.owl", "spr.owl"] as const).map((module) => (
             <div key={module}>
               <strong>{module}</strong>
-              <span>{classes.filter((item) => item.module === module).length} classes</span>
+              <span>{classes.filter((item) => item.module === module).length} 个类</span>
             </div>
           ))}
         </div>
@@ -590,8 +591,8 @@ function DetectionPanel({
               {activeTrace.durationMs !== undefined && <span>耗时 {activeTrace.durationMs}ms</span>}
             </div>
             <div className="trace-io-grid">
-              <TraceBlock title="输入 Input" value={activeTrace.input} />
-              <TraceBlock title={activeTrace.error ? "错误 Error" : "输出 Output"} value={activeTrace.error ? { message: activeTrace.error } : activeTrace.output} emptyText="等待该阶段返回输出" />
+              <TraceBlock title="输入内容" value={activeTrace.input} />
+              <TraceBlock title={activeTrace.error ? "错误信息" : "输出结果"} value={activeTrace.error ? { message: activeTrace.error } : activeTrace.output} emptyText="等待该阶段返回输出" />
             </div>
           </div>
         </div>
@@ -775,7 +776,7 @@ function KnowledgeExtractionPanel({
       <section className="panel semantic-panel-wide knowledge-form">
         <div className="section-heading">
           <h3>专家文档规则抽取</h3>
-          <span>{extraction?.reviewStatus ?? "未抽取"}</span>
+          <span>{extraction ? labelReviewStatus(extraction.reviewStatus) : "未抽取"}</span>
         </div>
         <label>
           来源文档
@@ -786,7 +787,7 @@ function KnowledgeExtractionPanel({
           <textarea value={text} rows={5} onChange={(event) => onTextChange(event.target.value)} />
         </label>
         <label>
-          Admin token
+          管理员令牌
           <input type="password" value={reviewToken} onChange={(event) => onReviewTokenChange(event.target.value)} />
         </label>
         <div className="action-row">
@@ -824,7 +825,7 @@ function KnowledgeExtractionPanel({
                   <dt>证据字段</dt>
                   <dd>{candidate.evidenceFields.join(" / ")}</dd>
                   <dt>状态</dt>
-                  <dd>{candidate.publishedVersionId ? `已发布 ${candidate.publishedVersionId}` : status}</dd>
+                  <dd>{candidate.publishedVersionId ? `已发布 ${candidate.publishedVersionId}` : labelReviewStatus(status)}</dd>
                 </dl>
                 <div className="candidate-actions">
                   <button type="button" onClick={() => onReview(candidate.candidateId, "approved")} disabled={reviewToken.trim().length === 0 || Boolean(candidate.publishedVersionId)}>

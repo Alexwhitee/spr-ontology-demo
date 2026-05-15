@@ -10,6 +10,7 @@ import {
 } from "../../lib/data";
 import type { DemoDataset, OntologyDocument, SprOntologyLayer, SprOntologyRelation, TopSprMapping } from "../../types/demo";
 import { applyOntologyOperations, createOntologyDocumentFromDataset, validateOntologyDocument } from "../../../../shared/ontology";
+import { labelEdgeType, labelMappingRelation, labelRelation, labelSourceEndpoint, labelSprLayer, labelTopStatus } from "../../i18n/zhCN";
 import {
   applySelectedNodeDraft,
   createSelectedNodeDraft,
@@ -337,7 +338,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
     <section className="ontology-page editor-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">Ontology Editor</span>
+          <span className="eyebrow">本体在线编辑器</span>
           <h2>在线导入、编辑和版本化本体 JSON</h2>
         </div>
       </div>
@@ -353,8 +354,8 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
           <span>导出 JSON</span>
         </button>
         <label className="token-box">
-          <span>Admin Token</span>
-          <input value={adminToken} onChange={(event) => setAdminToken(event.target.value)} placeholder="Bearer token" type="password" />
+          <span>管理员令牌</span>
+          <input value={adminToken} onChange={(event) => setAdminToken(event.target.value)} placeholder="请输入管理员令牌" type="password" />
         </label>
         <button type="button" className="icon-text-button primary-wide" onClick={handleSaveCloud}>
           <Save size={16} />
@@ -444,7 +445,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
             </aside>
           ) : (
             <aside className="inspector editor-inspector">
-              <div className={`node-badge ${selectedDraft.kind === "top" ? "top" : selectedDraft.layer}`}>{selectedDraft.kind === "top" ? "顶层节点" : selectedDraft.layer}</div>
+              <div className={`node-badge ${selectedDraft.kind === "top" ? "top" : selectedDraft.layer}`}>{selectedDraft.kind === "top" ? "顶层节点" : labelSprLayer(selectedDraft.layer)}</div>
               <h2>{selectedDraft.id}</h2>
               <FormText label="名称" value={selectedDraft.name} onChange={(value) => setSelectedDraft({ ...selectedDraft, name: value })} />
               <FormTextarea label="定义" value={selectedDraft.definition} onChange={(value) => setSelectedDraft({ ...selectedDraft, definition: value })} />
@@ -495,10 +496,10 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
             </div>
             <Select label="编辑已有关系" value={activeEdgeId} onChange={selectEdge} options={["", ...document.spr_ontology.relations.map((edge) => edge.id)]} />
             <FormText label="关系 ID" value={edgeDraft.id} onChange={(value) => setEdgeDraft({ ...edgeDraft, id: value })} />
-            <Select label="Source" value={edgeDraft.source} onChange={(value) => setEdgeDraft({ ...edgeDraft, source: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
-            <Select label="Target" value={edgeDraft.target} onChange={(value) => setEdgeDraft({ ...edgeDraft, target: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
-            <FormText label="Label" value={edgeDraft.label} onChange={(value) => setEdgeDraft({ ...edgeDraft, label: value })} />
-            <Select label="Type" value={edgeDraft.type} onChange={(value) => setEdgeDraft({ ...edgeDraft, type: value as SprOntologyRelation["type"] })} options={["objectProperty", "dataProperty", "derivedFrom", "mapsTo", "inherits", "subclass-of"]} />
+            <Select label={labelSourceEndpoint("Source")} value={edgeDraft.source} onChange={(value) => setEdgeDraft({ ...edgeDraft, source: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
+            <Select label={labelSourceEndpoint("Target")} value={edgeDraft.target} onChange={(value) => setEdgeDraft({ ...edgeDraft, target: value })} options={["", ...Object.keys(document.spr_ontology.nodes)]} />
+            <FormText label={labelSourceEndpoint("Label")} value={edgeDraft.label} onChange={(value) => setEdgeDraft({ ...edgeDraft, label: value })} />
+            <Select label={labelSourceEndpoint("Type")} value={edgeDraft.type} onChange={(value) => setEdgeDraft({ ...edgeDraft, type: value as SprOntologyRelation["type"] })} options={["objectProperty", "dataProperty", "derivedFrom", "mapsTo", "inherits", "subclass-of"]} renderOption={labelEdgeType} />
             <div className="button-row">
               <button type="button" onClick={handleAddEdge}>新增关系</button>
               <button type="button" onClick={handleUpdateEdge}>更新关系</button>
@@ -506,7 +507,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
             <div className="relation-list compact">
               {selectedEdges.map((edge) => (
                 <div key={edge.id}>
-                  {edge.source} → <strong>{edge.label}</strong> → {edge.target}
+                  {edge.source} → <strong>{labelRelation(edge.label)}</strong> → {edge.target}
                   <button type="button" onClick={() => handleDeleteEdge(edge.id)}>删除</button>
                 </div>
               ))}
@@ -524,7 +525,7 @@ export function OntologyEditorView({ dataset }: { dataset: DemoDataset }) {
               {document.top_spr_mappings.map((mapping) => (
                 <button key={mapping.id} type="button" className={activeMappingId === mapping.id ? "active" : ""} onClick={() => selectMapping(mapping.id)}>
                   <strong>{document.top_ontology.nodes[mapping.top_id]?.name ?? mapping.top_id}</strong>
-                  <span>{mapping.relation}</span>
+                  <span>{labelMappingRelation(mapping.relation)}</span>
                   <em>{document.spr_ontology.nodes[mapping.spr_id]?.name ?? mapping.spr_id}</em>
                 </button>
               ))}
@@ -588,13 +589,20 @@ function FormTextarea({ label, value, onChange }: { label: string; value: string
   );
 }
 
-function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+function Select({ label, value, options, onChange, renderOption = defaultOptionLabel }: { label: string; value: string; options: string[]; onChange: (value: string) => void; renderOption?: (value: string) => string }) {
   return (
     <label className="form-line">
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => <option key={option || "(empty)"} value={option}>{option || "无"}</option>)}
+        {options.map((option) => <option key={option || "(empty)"} value={option}>{option ? renderOption(option) : "无"}</option>)}
       </select>
     </label>
   );
+}
+
+function defaultOptionLabel(value: string): string {
+  if (value === "stable" || value === "candidate") return labelTopStatus(value);
+  if (value.startsWith("spr-") || value === "all") return labelSprLayer(value);
+  if (["subclass-of", "belongs-to", "candidate-extension"].includes(value)) return labelMappingRelation(value);
+  return value;
 }
