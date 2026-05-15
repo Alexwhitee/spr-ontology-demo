@@ -3,6 +3,7 @@ import type { DemoDataset, GraphEdge, GraphNode, ProcessRecord } from "./ontolog
 export type { DemoDataset } from "./ontology";
 
 export type OntologyModuleName = "core.owl" | "process.owl" | "resource.owl" | "quality.owl" | "model.owl" | "spr.owl";
+export const TOP_ONTOLOGY_MODULES: OntologyModuleName[] = ["core.owl", "process.owl", "resource.owl", "quality.owl", "model.owl"];
 
 export type OntologyClassDescriptor = {
   id: string;
@@ -462,6 +463,14 @@ export function exportOwlXml(dataset?: DemoDataset): string {
   )).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"\n         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"\n         xmlns:owl="http://www.w3.org/2002/07/owl#"\n         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"\n         xml:base="https://example.com/ontology/spr-owl2#">\n  <owl:Ontology rdf:about="https://example.com/ontology/spr-owl2">\n    <rdfs:comment>SPR process ontology OWL2 export generated from the demo ontology service.</rdfs:comment>\n  </owl:Ontology>\n${classXml}\n${propertyXml}\n${ruleXml}\n</rdf:RDF>\n`;
+}
+
+export function exportTopOntologyOwlXml(): string {
+  return exportOwlImportAggregateXml({
+    iri: "https://example.com/ontology/top-ontology",
+    comment: "Aggregate top-level process ontology generated from core process modules.",
+    modules: TOP_ONTOLOGY_MODULES
+  });
 }
 
 export function validateOwl2Artifacts(dataset: DemoDataset): OntologyValidationResult {
@@ -1004,6 +1013,11 @@ function escapeXml(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function exportOwlImportAggregateXml(input: { iri: string; comment: string; modules: OntologyModuleName[] }): string {
+  const imports = input.modules.map((moduleName) => `    <owl:imports rdf:resource="../${moduleName}"/>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"\n         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"\n         xmlns:owl="http://www.w3.org/2002/07/owl#"\n         xmlns:xsd="http://www.w3.org/2001/XMLSchema#">\n  <owl:Ontology rdf:about="${escapeXml(input.iri)}">\n    <rdfs:comment>${escapeXml(input.comment)}</rdfs:comment>\n${imports}\n  </owl:Ontology>\n</rdf:RDF>\n`;
 }
 
 function unescapeXml(value: string): string {
