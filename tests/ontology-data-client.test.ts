@@ -7,6 +7,7 @@ import {
   loadKnowledgeRuleCandidates,
   parseOntologyDocument,
   publishKnowledgeRules,
+  resolveApiUrl,
   reviewKnowledgeRuleCandidate,
   runRemoteDetection
 } from "../frontend/src/lib/data";
@@ -26,6 +27,13 @@ describe("ontology data client", () => {
     const document = createOntologyDocumentFromDataset(dataset);
 
     expect(parseOntologyDocument(document).spr_ontology.nodes.record.name).toContain("SPR");
+  });
+
+  it("uses the deployed Worker as the production API fallback when Vite env is missing", () => {
+    expect(resolveApiUrl("/api/detect/run", { dataMode: undefined, apiBaseUrl: undefined, isProduction: true }))
+      .toBe("https://spr-demo-api.r3694211.workers.dev/api/detect/run");
+    expect(resolveApiUrl("/api/detect/run", { dataMode: undefined, apiBaseUrl: undefined, isProduction: false }))
+      .toBe("/api/detect/run");
   });
 
   it("posts detection requests to the Worker API instead of using the local mock function", async () => {

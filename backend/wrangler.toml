@@ -7,8 +7,8 @@ DATA_MODE = "static"
 ALLOWED_ORIGIN = "*"
 DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json"
 CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves"
-LLM_API_BASE_URL = "http://118.195.247.200:3000/v1/chat/completions"
-LLM_MODEL = "qwen/qwen3-next-80b-a3b-thinking"
+LLM_API_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+LLM_MODEL = "qwen3.5-flash"
 LLM_TIMEOUT_MS = "60000"
 
 [[d1_databases]]

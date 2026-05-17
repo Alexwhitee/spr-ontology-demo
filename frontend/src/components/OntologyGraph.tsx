@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import cytoscape from "cytoscape";
 import type { GraphEdge, GraphNode } from "../types/demo";
-import { buildSelectionClassPlan } from "./ontologyGraphState";
+import { buildGraphDisplayElements, buildSelectionClassPlan } from "./ontologyGraphState";
 
 type OntologyGraphProps = {
   nodes: GraphNode[];
@@ -56,12 +56,10 @@ export function OntologyGraph({ nodes, edges, view = "all", selectedId, highligh
 
   useEffect(() => {
     if (!ref.current) return;
+    const elements = buildGraphDisplayElements(filtered.nodes, filtered.edges);
     const cy = cytoscape({
       container: ref.current,
-      elements: [
-        ...filtered.nodes.map((node) => ({ data: node })),
-        ...filtered.edges.map((edge) => ({ data: edge }))
-      ],
+      elements: [...elements.nodes, ...elements.edges],
       style: [
         {
           selector: "node",

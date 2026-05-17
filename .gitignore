@@ -13,3 +13,6 @@ frontend/.env.production
 scratch/
 output/
 spr-demo-dashboard.png
+_local_docs_archive/
+docs/~$*
+docs/SPR工艺本体周日汇报_最终版.pptx

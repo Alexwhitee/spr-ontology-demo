@@ -481,9 +481,17 @@ function buildOntology(topNodes: Record<string, TopOntologyNode>, sprNodes: Reco
     .filter((item) => item.parent_id)
     .map((item) => edge(`top-${item.parent_id}-${item.id}`, item.parent_id as string, item.id, "subclass-of", "inherits"));
   const sprEdges = relations.map((item) => edge(item.id, item.source, item.target, item.label, item.type === "subclass-of" ? "inherits" : item.type));
-  const mappingEdges = mappings.map((item) => edge(`mapping-${item.id}`, item.top_id, item.spr_id, item.relation, "inherits"));
+  const mappingEdges = mappings
+    .filter((item) => !isRedundantDisplayMapping(item, topNodes, sprNodes))
+    .map((item) => edge(`mapping-${item.id}`, item.top_id, item.spr_id, item.relation, "inherits"));
 
   return { nodes, edges: [...topEdges, ...sprEdges, ...mappingEdges] };
+}
+
+function isRedundantDisplayMapping(item: TopSprMapping, topNodes: Record<string, TopOntologyNode>, sprNodes: Record<string, SprOntologyNode>): boolean {
+  const topNode = topNodes[item.top_id];
+  const sprNode = sprNodes[item.spr_id];
+  return Boolean(topNode && sprNode && topNode.name === sprNode.name && item.relation === "subclass-of");
 }
 
 function ancestorPath(id: string, nodes: Record<string, TopOntologyNode>): string[] {

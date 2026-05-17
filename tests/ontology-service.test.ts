@@ -5,6 +5,7 @@ import {
   buildOntologyWorkbenchGraph,
   createWarningReport,
   exportOwlXml,
+  exportTopOntologyOwlXml,
   extractRuleCandidatesWithLlm,
   listOntologyClasses,
   listQualityRules,
@@ -26,6 +27,18 @@ describe("OWL2 ontology service core", () => {
     expect(owl).toContain("WarningReport");
     expect(owl).toContain("hasInspectionProcess");
     expect(owl).toContain("hasRootCauseCandidate");
+  });
+
+  it("exports a top-level OWL2 aggregate that excludes the SPR module", () => {
+    const owl = exportTopOntologyOwlXml();
+
+    expect(owl).toContain("https://example.com/ontology/top-ontology");
+    expect(owl).toContain("../core.owl");
+    expect(owl).toContain("../process.owl");
+    expect(owl).toContain("../resource.owl");
+    expect(owl).toContain("../quality.owl");
+    expect(owl).toContain("../model.owl");
+    expect(owl).not.toContain("spr.owl");
   });
 
   it("validates semantic artifacts and keeps unresolved field semantics as warnings", () => {

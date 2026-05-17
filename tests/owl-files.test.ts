@@ -13,6 +13,20 @@ describe("OWL2 ontology files", () => {
     }
   });
 
+  it("ships a top-level aggregate OWL2 file without SPR imports", () => {
+    const fullPath = path.join(root, "ontology", "generated", "top-ontology.owl");
+    expect(fs.existsSync(fullPath), "generated/top-ontology.owl should exist").toBe(true);
+
+    const topOntology = fs.readFileSync(fullPath, "utf8");
+    expect(topOntology).toContain("https://example.com/ontology/top-ontology");
+    expect(topOntology).toContain("core.owl");
+    expect(topOntology).toContain("process.owl");
+    expect(topOntology).toContain("resource.owl");
+    expect(topOntology).toContain("quality.owl");
+    expect(topOntology).toContain("model.owl");
+    expect(topOntology).not.toContain("spr.owl");
+  });
+
   it("keeps the SPR extension focused on ontology inheritance and quality closure", () => {
     const spr = fs.readFileSync(path.join(root, "ontology", "spr.owl"), "utf8");
 

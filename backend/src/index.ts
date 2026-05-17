@@ -10,6 +10,7 @@ import {
   analyzeRootCause,
   createWarningReport,
   exportOwlXml,
+  exportTopOntologyOwlXml,
   extractRuleCandidates,
   extractRuleCandidatesWithLlm,
   listOntologyClasses,
@@ -43,6 +44,7 @@ export default {
       if (url.pathname === "/api/dataset") return json(dataset, env);
       if (url.pathname === "/api/summary") return json(dataset.summary, env);
       if (url.pathname === "/api/ontology/owl") return owl(exportOwlXml(dataset), env);
+      if (url.pathname === "/api/ontology/top.owl") return owl(exportTopOntologyOwlXml(), env);
       if (url.pathname === "/api/ontology/validate") return json(validateOwl2Artifacts(dataset), env);
       if (url.pathname === "/api/ontology/classes") return json(listOntologyClasses(dataset), env);
       if (url.pathname === "/api/ontology/rules") return json(listQualityRules(dataset), env);

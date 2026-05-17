@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  TOP_ONTOLOGY_MODULES,
+  exportTopOntologyOwlXml,
   listOntologyClasses,
   listOntologyProperties,
   listQualityRules,
@@ -9,6 +11,7 @@ import {
 } from "../shared/ontology-service";
 
 export const ONTOLOGY_MODULES: OntologyModuleName[] = ["core.owl", "process.owl", "resource.owl", "quality.owl", "model.owl", "spr.owl"];
+export { TOP_ONTOLOGY_MODULES };
 
 type OwlModuleMap = Record<string, string>;
 
@@ -22,7 +25,8 @@ export function buildOwlModules(): OwlModuleMap {
   ]));
   return {
     ...modules,
-    "generated/current.owl": buildAggregateOwl()
+    "generated/current.owl": buildAggregateOwl(),
+    "generated/top-ontology.owl": exportTopOntologyOwlXml()
   };
 }
 

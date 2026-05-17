@@ -14,6 +14,7 @@ import { labelApiError } from "../i18n/zhCN";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const DATA_MODE = import.meta.env.VITE_DATA_MODE as string | undefined;
+const DEFAULT_WORKER_API_BASE = "https://spr-demo-api.r3694211.workers.dev";
 
 export async function loadDataset(): Promise<DemoDataset> {
   const url = DATA_MODE === "api" && API_BASE ? `${API_BASE}/api/dataset` : "/data/demo-dataset.json";
@@ -126,8 +127,17 @@ export async function loadRemoteOwl(): Promise<string> {
   return response.text();
 }
 
+export function resolveApiUrl(path: string, options: { dataMode?: string; apiBaseUrl?: string; isProduction?: boolean } = {}): string {
+  const dataMode = options.dataMode ?? DATA_MODE;
+  const apiBaseUrl = options.apiBaseUrl ?? API_BASE;
+  const isProduction = options.isProduction ?? import.meta.env.PROD;
+  if (dataMode === "api" && apiBaseUrl) return `${apiBaseUrl}${path}`;
+  if (isProduction) return `${DEFAULT_WORKER_API_BASE}${path}`;
+  return path;
+}
+
 function apiUrl(path: string): string {
-  return DATA_MODE === "api" && API_BASE ? `${API_BASE}${path}` : path;
+  return resolveApiUrl(path);
 }
 
 function authHeaders(token: string): HeadersInit {

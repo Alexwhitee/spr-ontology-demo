@@ -2,6 +2,8 @@
 
 这是一个面向导师汇报的 SPR 工艺本体可视化 Demo。系统把当前项目文件夹中的 Markdown 本体材料、Excel 原始数据、字段映射和规则说明转换为可交互的知识图谱、实例追溯、曲线包络线和推理解释界面。
 
+项目说明可从已纳入版本管理的 [docs/architecture.md](docs/architecture.md)、[docs/data-contract.md](docs/data-contract.md)、[docs/demo-script.md](docs/demo-script.md) 和 [docs/deployment.md](docs/deployment.md) 开始阅读。
+
 ## 本地运行
 
 ```bash

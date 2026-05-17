@@ -48,7 +48,8 @@ for (const record of records) {
 }
 
 const topOntology = buildTopOntology();
-const sprOntology = buildSprOntology(records);
+const fieldMappings = buildFieldMappings();
+const sprOntology = buildSprOntology(records, fieldMappings);
 const topSprMappings = buildTopSprMappings();
 const hierarchyPaths = buildHierarchyPaths(topOntology.nodes, sprOntology.nodes, topSprMappings);
 
@@ -60,7 +61,7 @@ const dataset: DemoDataset = {
   top_spr_mappings: topSprMappings,
   hierarchy_paths: hierarchyPaths,
   ontology: buildOntology(topOntology.nodes, sprOntology.nodes, sprOntology.relations, topSprMappings),
-  fieldMappings: buildFieldMappings(),
+  fieldMappings,
   records,
   demoScripts: buildDemoScripts()
 };
@@ -227,7 +228,7 @@ function buildTopOntology(): DemoDataset["top_ontology"] {
   };
 }
 
-function buildSprOntology(records: ProcessRecord[]): DemoDataset["spr_ontology"] {
+function buildSprOntology(records: ProcessRecord[], fieldMappings: FieldMapping[]): DemoDataset["spr_ontology"] {
   const countByClass = {
     "SPR过程记录类": records.length,
     "设备类": unique(records.map((record) => record.deviceName)).length,
@@ -304,6 +305,8 @@ function buildSprOntology(records: ProcessRecord[]): DemoDataset["spr_ontology"]
     node.relations = relations.filter((item) => item.source === node.id || item.target === node.id).map((item) => item.id);
   }
 
+  applyMappedProperties(nodes, fieldMappings);
+
   return { nodes, relations };
 }
 
@@ -362,9 +365,17 @@ function buildOntology(topNodes: Record<string, TopOntologyNode>, sprNodes: Reco
     .filter((item) => item.parent_id)
     .map((item) => edge(`top-${item.parent_id}-${item.id}`, item.parent_id as string, item.id, "subclass-of", "inherits"));
   const sprEdges = relations.map((item) => edge(item.id, item.source, item.target, item.label, item.type === "subclass-of" ? "inherits" : item.type));
-  const mappingEdges = mappings.map((item) => edge(`mapping-${item.id}`, item.top_id, item.spr_id, item.relation, "inherits"));
+  const mappingEdges = mappings
+    .filter((item) => !isRedundantDisplayMapping(item, topNodes, sprNodes))
+    .map((item) => edge(`mapping-${item.id}`, item.top_id, item.spr_id, item.relation, "inherits"));
 
   return { nodes, edges: [...topEdges, ...sprEdges, ...mappingEdges] };
+}
+
+function isRedundantDisplayMapping(item: TopSprMapping, topNodes: Record<string, TopOntologyNode>, sprNodes: Record<string, SprOntologyNode>): boolean {
+  const topNode = topNodes[item.top_id];
+  const sprNode = sprNodes[item.spr_id];
+  return Boolean(topNode && sprNode && topNode.name === sprNode.name && item.relation === "subclass-of");
 }
 
 function buildFieldMappings(): FieldMapping[] {
@@ -508,11 +519,26 @@ function spr(
     inheritance_relation,
     definition,
     source_fields,
-    properties: source_fields.map((field) => ({ name: field, description: `来源字段：${field}` })),
+    properties: [],
     relations: [],
     source_doc: "SPR本体更新最终交付文档.md",
     instanceCount
   };
+}
+
+function applyMappedProperties(nodes: Record<string, SprOntologyNode>, fieldMappings: FieldMapping[]) {
+  const nodeByName = new Map(Object.values(nodes).map((node) => [node.name, node]));
+
+  for (const mapping of fieldMappings) {
+    const node = nodeByName.get(mapping.ontologyClass);
+    if (!node) continue;
+    if (!node.source_fields.includes(mapping.sourceField)) node.source_fields.push(mapping.sourceField);
+    if (node.properties.some((property) => property.name === mapping.ontologyProperty)) continue;
+    node.properties.push({
+      name: mapping.ontologyProperty,
+      description: `来源字段：${mapping.sourceField}；${mapping.note}`
+    });
+  }
 }
 
 function relation(id: string, source: string, target: string, label: string, type: SprOntologyRelation["type"]): SprOntologyRelation {

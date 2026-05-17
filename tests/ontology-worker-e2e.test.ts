@@ -19,6 +19,14 @@ describe("ontology Worker real API endpoints", () => {
     expect(owl.headers.get("content-type")).toContain("application/rdf+xml");
     expect(await owl.text()).toContain("SPRInspectionProcess");
 
+    const topOwl = await worker.fetch(new Request("https://unit.test/api/ontology/top.owl"), env);
+    expect(topOwl.status).toBe(200);
+    expect(topOwl.headers.get("content-type")).toContain("application/rdf+xml");
+    const topOwlBody = await topOwl.text();
+    expect(topOwlBody).toContain("https://example.com/ontology/top-ontology");
+    expect(topOwlBody).toContain("../process.owl");
+    expect(topOwlBody).not.toContain("spr.owl");
+
     const detection = await worker.fetch(jsonRequest("https://unit.test/api/detect/run", {
       recordId: "riprop-2",
       modelMode: "mock",
