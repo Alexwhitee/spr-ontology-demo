@@ -176,14 +176,17 @@ async function handleDatasetImport(request: Request, env: Env): Promise<Response
   if (unauthorized) return unauthorized;
   if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
   const body = await request.json().catch(() => ({})) as Partial<DatabaseImportRequest>;
-  if (body.sourceTable !== "main" && body.sourceTable !== "rip_rop") {
-    return json({ error: "sourceTable must be main or rip_rop" }, env, 400);
+  if (body.sourceTable !== "main" && body.sourceTable !== "rip_rop" && body.sourceTable !== "new_table") {
+    return json({ error: "sourceTable must be main, rip_rop, or new_table" }, env, 400);
+  }
+  if (body.sourceTable === "new_table" && !body.sourceTableName?.trim()) {
+    return json({ error: "sourceTableName is required for new_table imports" }, env, 400);
   }
   if (!Array.isArray(body.rows) || body.rows.length === 0) {
     return json({ error: "rows must be a non-empty array" }, env, 400);
   }
   const base = runtimeImportedDataset ?? await getDataset(env);
-  const result = importDatabaseRows(base, { sourceTable: body.sourceTable, rows: body.rows });
+  const result = importDatabaseRows(base, { sourceTable: body.sourceTable, sourceTableName: body.sourceTableName, rows: body.rows });
   runtimeImportedDataset = result.dataset;
   cachedDataset = { value: result.dataset, expiresAt: Date.now() + 60_000 };
   return json(result, env);

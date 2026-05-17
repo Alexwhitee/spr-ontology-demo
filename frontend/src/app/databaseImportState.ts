@@ -21,12 +21,14 @@ export type ImportGuidance = {
 
 export type SourceTableDetection = {
   sourceTable: ProcessRecord["source"] | null;
+  sourceTableName?: string;
   reason: string;
 };
 
 export type ParsedImportTable = {
   rows: Array<Record<string, unknown>>;
   detectedSourceTable: ProcessRecord["source"] | null;
+  detectedSourceTableName?: string;
   detectionReason: string;
   tableName?: string;
   format: ImportPayloadFormat;
@@ -43,8 +45,10 @@ export type ImportRequestDraftInput = {
 
 export type ImportRequestDraft = {
   sourceTable: ProcessRecord["source"];
+  sourceTableName?: string;
   rows: Array<Record<string, unknown>>;
   detectedSourceTable: ProcessRecord["source"] | null;
+  detectedSourceTableName?: string;
   detectionReason: string;
 };
 
@@ -75,7 +79,7 @@ export function buildImportGuidance(mode: DatabaseImportMode, sourceTable: Proce
     databaseMeaning: "当前演示系统使用同一个业务数据库视图进行本体化处理，其中 main 主表和 RIP_ROP 表是两类来源表，并不是两个互不相干的系统。",
     tableMeaning: mode === "row"
       ? `新增单行必须选择目标表，本次目标表是${source.label}。因为单行数据没有完整表结构上下文，系统需要按所选表的字段口径完成标准化。`
-      : "导入整张表时不需要先选择目标来源表。系统会根据文件名、Excel 工作表名、SQL 表名和字段名自动识别 main 主表或 RIP_ROP 表；只有识别结果不明确时，才使用页面上的备用归类作为兜底选择。",
+      : "导入整张表时不需要先选择目标来源表。系统会根据文件名、Excel 工作表名、SQL 表名和字段名自动识别 main 主表、RIP_ROP 表或新增来源表；只有粘贴 JSON 数组且没有表名上下文时，才使用页面上的备用归类。",
     payloadMeaning: mode === "row"
       ? "当前模式用于新增单条数据库行，JSON 内容应为一个 JSON 对象。页面提交前会自动包装成一行数组，再触发字段识别、本体刷新、图谱重建和检测输入更新。"
       : "当前模式用于导入一批记录或一张新增表。推荐直接上传 Excel、CSV 或 SQL 文件；JSON 数组仍然保留为高级调试入口，数组中的每个对象代表数据库表中的一行。",
@@ -119,7 +123,10 @@ export function inferSourceTableFromRows(rows: Array<Record<string, unknown>>, t
   if (mainScore > ripRopScore && mainScore >= 2) {
     return { sourceTable: "main", reason: `根据字段或表名识别为 main 主表，命中 ${mainScore} 个特征，典型字段包括 pre、error_rate、original_data、calculate_data。` };
   }
-  return { sourceTable: null, reason: "未能自动识别来源表；系统会使用备用归类作为导入兜底。若希望自动识别，请提供更多字段，例如 RIP_ROP 的“故障代码/铆接曲线”，或 main 的“pre/error_rate”。" };
+  if (tableName.trim()) {
+    return { sourceTable: "new_table", sourceTableName: tableName.trim(), reason: `未命中 main 或 RIP_ROP 的既有字段特征，系统将按“${tableName.trim()}”作为新增来源表导入，并保留原始字段等待业务确认。` };
+  }
+  return { sourceTable: null, reason: "未能自动识别来源表，且当前内容没有表名上下文；系统会使用备用归类作为导入兜底。若这是新增表，建议上传 Excel、CSV 或 SQL 文件，或使用带表名的 SQL INSERT。" };
 }
 
 export function parseImportText(value: string, format: Exclude<ImportPayloadFormat, "excel">, mode: DatabaseImportMode): ParsedImportTable {
@@ -141,6 +148,7 @@ export function parseImportText(value: string, format: Exclude<ImportPayloadForm
   return {
     rows,
     detectedSourceTable: detection.sourceTable,
+    detectedSourceTableName: detection.sourceTableName,
     detectionReason: detection.reason,
     tableName,
     format,
@@ -158,10 +166,13 @@ export function parseExcelWorkbook(data: ArrayBuffer | Uint8Array): ParsedImport
   }).filter((candidate) => candidate.rows.length > 0);
   if (candidates.length === 0) throw new Error("Excel 文件中没有可导入的数据行。");
 
-  const selected = candidates.find((candidate) => candidate.detection.sourceTable) ?? candidates[0];
+  const selected = candidates.find((candidate) => candidate.detection.sourceTable && candidate.detection.sourceTable !== "new_table")
+    ?? candidates.find((candidate) => candidate.detection.sourceTable === "new_table")
+    ?? candidates[0];
   return {
     rows: selected.rows,
     detectedSourceTable: selected.detection.sourceTable,
+    detectedSourceTableName: selected.detection.sourceTableName,
     detectionReason: selected.detection.reason,
     tableName: selected.sheetName,
     format: "excel",
@@ -175,14 +186,17 @@ export function buildImportRequestDraft(input: ImportRequestDraftInput): ImportR
       sourceTable: input.fallbackSourceTable,
       rows: normalizeImportPayload(input.textPayload, "row"),
       detectedSourceTable: input.fallbackSourceTable,
+      detectedSourceTableName: undefined,
       detectionReason: "新增单行模式使用用户选择的目标表。"
     };
   }
   const parsed = input.parsedTable ?? parseImportText(input.textPayload, input.textFormat ?? "json", "table");
   return {
     sourceTable: parsed.detectedSourceTable ?? input.fallbackSourceTable,
+    sourceTableName: parsed.detectedSourceTable === "new_table" ? parsed.detectedSourceTableName ?? parsed.tableName : undefined,
     rows: parsed.rows,
     detectedSourceTable: parsed.detectedSourceTable,
+    detectedSourceTableName: parsed.detectedSourceTableName,
     detectionReason: parsed.detectionReason
   };
 }

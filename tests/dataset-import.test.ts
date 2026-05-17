@@ -77,6 +77,36 @@ describe("database import automation", () => {
     expect(result.automationSteps.find((step) => step.key === "ontology")?.detail).toContain("字段映射");
   });
 
+  it("imports a brand-new source table without forcing it into main or RIP_ROP", () => {
+    const result = importDatabaseRows(dataset, {
+      sourceTable: "new_table",
+      sourceTableName: "inspection_log",
+      rows: [{
+        inspection_id: "INS-001",
+        inspector: "张三",
+        result: "通过",
+        station_note: "首件复核"
+      }]
+    });
+
+    const imported = result.dataset.records.find((record) => record.id === "table-inspection-log-ins-001");
+
+    expect(imported?.source).toBe("new_table");
+    expect(imported?.sourceTableName).toBe("inspection_log");
+    expect(imported?.raw.result).toBe("通过");
+    expect(result.dataset.summary.metrics.mainRecords).toBe(dataset.summary.metrics.mainRecords);
+    expect(result.dataset.summary.metrics.ripRopRecords).toBe(dataset.summary.metrics.ripRopRecords);
+    expect(result.dataset.summary.distributions.source).toContainEqual({ name: "inspection_log（新增来源表）", value: 1 });
+    expect(result.dataset.fieldMappings).toContainEqual(expect.objectContaining({
+      sourceTable: "new_table",
+      sourceTableName: "inspection_log",
+      sourceField: "inspection_id",
+      ontologyClass: "SPR过程记录类",
+      status: "需确认"
+    }));
+    expect(result.automationSteps[0].detail).toContain("inspection_log");
+  });
+
   it("can run as a browser-local refresh without a worker write", () => {
     const result = importDatabaseRows(dataset, {
       sourceTable: "rip_rop",

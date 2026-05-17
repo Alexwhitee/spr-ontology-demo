@@ -93,11 +93,12 @@ describe("database import presentation state", () => {
     expect(parsedExcel.columns).toContain("故障代码");
   });
 
-  it("returns no automatic source when full-table fields are ambiguous", () => {
-    const detection = inferSourceTableFromRows([{ foo: "bar", note: "unknown" }]);
+  it("classifies unknown full-table structures as new source tables", () => {
+    const detection = inferSourceTableFromRows([{ inspection_id: "I-001", inspector: "张三", result: "通过" }], "inspection_log");
 
-    expect(detection.sourceTable).toBeNull();
-    expect(detection.reason).toContain("未能自动识别");
+    expect(detection.sourceTable).toBe("new_table");
+    expect(detection.sourceTableName).toBe("inspection_log");
+    expect(detection.reason).toContain("新增来源表");
   });
 
   it("uses detected source table for pasted full-table SQL and only falls back when ambiguous", () => {
@@ -112,6 +113,19 @@ describe("database import presentation state", () => {
     expect(detected.sourceTable).toBe("main");
     expect(detected.rows[0].pre).toBe("1.000");
 
+    const newTable = buildImportRequestDraft({
+      mode: "table",
+      fallbackSourceTable: "rip_rop",
+      textPayload: "INSERT INTO inspection_log (inspection_id, inspector, result) VALUES ('I-001', '张三', '通过');",
+      textFormat: "sql"
+    });
+
+    expect(newTable.sourceTable).toBe("new_table");
+    expect(newTable.sourceTableName).toBe("inspection_log");
+    expect(newTable.detectedSourceTable).toBe("new_table");
+  });
+
+  it("only uses the fallback source table for explicit JSON arrays without a table name", () => {
     const fallback = buildImportRequestDraft({
       mode: "table",
       fallbackSourceTable: "rip_rop",

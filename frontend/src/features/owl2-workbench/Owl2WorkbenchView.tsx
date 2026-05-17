@@ -43,6 +43,7 @@ import {
   buildRecordInputSummary,
   buildRecordOptionLabel,
   buildRecordOptionGroups,
+  sourceTableLabel,
   TRACE_EXPLANATION_LABELS,
   statusText,
   summarizeDetectionOutcome,
@@ -336,7 +337,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
             <GitBranch size={16} />
             <span>
               <strong>检测记录选择</strong>
-              <em>列表按来源表分组：RIP_ROP 表用于铆接故障与曲线检测，main 主表用于主过程记录和 pre 预测编码复核。</em>
+              <em>列表按来源表分组：RIP_ROP 表用于铆接故障与曲线检测，main 主表用于主过程记录和 pre 预测编码复核，新增来源表先作为可追溯记录保留字段。</em>
             </span>
           </div>
           <label className="record-picker">
@@ -352,7 +353,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
           </label>
           {selectedRecord && (
             <div className="record-picker-summary">
-              <span>{selectedRecord.source === "rip_rop" ? "RIP_ROP 表" : "main 主表"}</span>
+              <span>{sourceTableLabel(selectedRecord.source, selectedRecord.sourceTableName)}</span>
               <span>{selectedRecord.deviceName || "设备未提供"}</span>
               <span>{selectedRecord.timestamp || "时间未提供"}</span>
             </div>
@@ -692,7 +693,7 @@ function DetectionPanel({
             <h3>输入记录</h3>
             <span>ProcessRecord</span>
           </div>
-          <p className="principle-copy">工作原理：输入记录是数据库行在本体中的统一格式。RIP_ROP 表字段偏向铆接故障和曲线，main 主表字段偏向主过程记录和预测编码；系统会先整理成 ProcessRecord，后续流程只读取这个统一对象。</p>
+          <p className="principle-copy">工作原理：输入记录是数据库行在本体中的统一格式。RIP_ROP 表字段偏向铆接故障和曲线，main 主表字段偏向主过程记录和预测编码；新增来源表会先保留原始字段和来源表名，作为可追溯过程记录等待业务确认。系统会先整理成 ProcessRecord，后续流程只读取这个统一对象。</p>
           <dl className="detail-grid detect-input-grid">
             {inputSummary.map((item) => (
               <div key={item.label}>

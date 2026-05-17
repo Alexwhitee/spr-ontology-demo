@@ -76,7 +76,7 @@ export type DetectionFlowState = {
 
 export function buildRecordOptionLabel(record: ProcessRecord): string {
   const fragments = [
-    sourceTableLabel(record.source),
+    sourceTableLabel(record.source, record.sourceTableName),
     qualityClueLabel(record),
     record.deviceName ? `设备：${record.deviceName}` : "设备：未提供",
     record.timestamp ? `时间：${record.timestamp}` : "时间：未提供",
@@ -87,7 +87,9 @@ export function buildRecordOptionLabel(record: ProcessRecord): string {
 
 export function buildRecordOptionGroups(records: ProcessRecord[], selectedRecordId?: string, limitPerSource = 60): RecordOptionGroup[] {
   const selected = selectedRecordId ? records.find((record) => record.id === selectedRecordId) : undefined;
-  return (["rip_rop", "main"] as const).map((source) => {
+  const sourceOrder: ProcessRecord["source"][] = ["rip_rop", "main", "new_table"];
+  const sources = sourceOrder.filter((source) => records.some((record) => record.source === source));
+  return sources.map((source) => {
     const sourceRecords = records
       .filter((record) => record.source === source)
       .sort(compareRecordsForPicker);
@@ -97,12 +99,8 @@ export function buildRecordOptionGroups(records: ProcessRecord[], selectedRecord
       : limited;
     return {
       source,
-      label: source === "rip_rop"
-        ? `RIP_ROP 表：铆接过程明细（${sourceRecords.length.toLocaleString("zh-CN")} 条）`
-        : `main 主表：主过程记录与预测编码（${sourceRecords.length.toLocaleString("zh-CN")} 条）`,
-      description: source === "rip_rop"
-        ? "RIP_ROP 表来自铆接过程明细，优先显示带故障代码、曲线和包络线的记录，适合演示异常检测。"
-        : "main 主表来自主过程记录，pre 是模型或算法输出的预测编码；编码业务含义尚待确认，所以系统会保守标注为待复核线索。",
+      label: recordGroupLabel(source, sourceRecords),
+      description: recordGroupDescription(source, sourceRecords),
       records: selectedInSource
     };
   }).filter((group) => group.records.length > 0);
@@ -112,7 +110,7 @@ export function buildRecordInputSummary(record: ProcessRecord | undefined): Arra
   if (!record) return [{ label: "记录", value: "未选择" }];
   return [
     { label: "记录 ID", value: record.id },
-    { label: "来源表", value: sourceTableLabel(record.source) },
+    { label: "来源表", value: sourceTableLabel(record.source, record.sourceTableName) },
     { label: "设备", value: record.deviceName || "未提供" },
     { label: "程序", value: record.program || "未提供" },
     { label: "时间", value: record.timestamp || "未提供" },
@@ -253,7 +251,7 @@ export function buildDetectionTraceExplanations(steps: DetectionTraceStep[]): De
         title: step.title,
         inputMeaning: "输入数据是检测请求 JSON，通常包含 recordId 和 includeCurveSummary。后端会根据 recordId 读取完整 ProcessRecord，包括故障代码、pre 预测编码、error_rate、铆接曲线摘要和包络线摘要。",
         callMeaning: `接口调用采用 ${endpoint}。请求体以 JSON 形式提交，返回值也使用 JSON，便于页面把检测类别、证据字段和异常事件逐项展示出来。`,
-        operationMeaning: "Worker 会先查找记录，再按照本体规则或模型策略进行判断：RIP_ROP 表优先使用故障代码和曲线/包络线摘要；main 主表优先保留 pre 与 error_rate 作为预测线索。系统会把结果归入正常、曲线高于包络线、曲线低于包络线、冲压行程过大或预测结果待复核等类别。",
+        operationMeaning: "Worker 会先查找记录，再按照本体规则或模型策略进行判断：RIP_ROP 表优先使用故障代码和曲线/包络线摘要；main 主表优先保留 pre 与 error_rate 作为预测线索；新增来源表在字段语义确认前先作为可追溯过程记录保守处理。系统会把结果归入正常、曲线高于包络线、曲线低于包络线、冲压行程过大或预测结果待复核等类别。",
         outputMeaning: "输出结果是结构化检测结论，包含预测类别、置信度、严重等级、证据字段、异常事件和本体路径。页面后续的根因分析和预警报告都基于这个输出继续处理。",
         plainLanguageSummary: "本步骤把一条数据库记录转换成可解释、可追溯的质量检测判断。"
       };
@@ -385,8 +383,24 @@ function normalizeFaultCode(value: string | undefined): string {
   return value.replace(/^DDC:\s*/, "");
 }
 
-function sourceTableLabel(source: ProcessRecord["source"]): string {
-  return source === "rip_rop" ? "RIP_ROP 表（铆接过程明细）" : "main 主表（主过程记录）";
+export function sourceTableLabel(source: ProcessRecord["source"], sourceTableName?: string): string {
+  if (source === "rip_rop") return "RIP_ROP 表（铆接过程明细）";
+  if (source === "main") return "main 主表（主过程记录）";
+  return `${sourceTableName || "新增来源表"}（新增来源表）`;
+}
+
+function recordGroupLabel(source: ProcessRecord["source"], records: ProcessRecord[]): string {
+  if (source === "rip_rop") return `RIP_ROP 表：铆接过程明细（${records.length.toLocaleString("zh-CN")} 条）`;
+  if (source === "main") return `main 主表：主过程记录与预测编码（${records.length.toLocaleString("zh-CN")} 条）`;
+  const tableNames = Array.from(new Set(records.map((record) => record.sourceTableName || "未命名新表")));
+  return `新增来源表：${tableNames.join("、")}（${records.length.toLocaleString("zh-CN")} 条）`;
+}
+
+function recordGroupDescription(source: ProcessRecord["source"], records: ProcessRecord[]): string {
+  if (source === "rip_rop") return "RIP_ROP 表来自铆接过程明细，优先显示带故障代码、曲线和包络线的记录，适合演示异常检测。";
+  if (source === "main") return "main 主表来自主过程记录，pre 是模型或算法输出的预测编码；编码业务含义尚待确认，所以系统会保守标注为待复核线索。";
+  const fieldCount = new Set(records.flatMap((record) => Object.keys(record.raw))).size;
+  return `新增来源表暂作为可追溯过程记录进入本体，已保留 ${fieldCount.toLocaleString("zh-CN")} 个原始字段，等待业务确认后再细分语义。`;
 }
 
 function qualityClueLabel(record: ProcessRecord): string {

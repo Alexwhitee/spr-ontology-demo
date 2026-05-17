@@ -38,7 +38,7 @@ export function explainRecord(record: ProcessRecord) {
   }
   if (triggeredRules.length === 0) {
     triggeredRules.push("Rule-No-Blocking-Fault");
-    evidenceFields.add(record.source === "main" ? "pre" : "故障代码");
+    evidenceFields.add(record.source === "main" ? "pre" : record.source === "rip_rop" ? "故障代码" : "原始字段");
   }
 
   const faultLabel = fault && fault !== "-" ? fault.replace(/^DDC:\s*/, "") : "未触发明确故障";

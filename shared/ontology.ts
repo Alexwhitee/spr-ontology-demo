@@ -91,9 +91,12 @@ export type CurveSummary = {
   peakIndex: number;
 };
 
+export type ProcessRecordSource = "main" | "rip_rop" | "new_table";
+
 export type ProcessRecord = {
   id: string;
-  source: "main" | "rip_rop";
+  source: ProcessRecordSource;
+  sourceTableName?: string;
   lineName?: string;
   deviceName?: string;
   program?: string;
@@ -119,7 +122,8 @@ export type ProcessRecord = {
 };
 
 export type FieldMapping = {
-  sourceTable: "main" | "rip_rop";
+  sourceTable: ProcessRecordSource;
+  sourceTableName?: string;
   sourceField: string;
   ontologyClass: string;
   ontologyProperty: string;
@@ -129,6 +133,7 @@ export type FieldMapping = {
 
 export type DatabaseImportRequest = {
   sourceTable: ProcessRecord["source"];
+  sourceTableName?: string;
   rows: Array<Record<string, unknown>>;
 };
 
@@ -257,8 +262,11 @@ const topSprMappingSchema = z.object({
   source_section: z.string()
 });
 
+const sourceTableSchema = z.enum(["main", "rip_rop", "new_table"]);
+
 const fieldMappingSchema = z.object({
-  sourceTable: z.enum(["main", "rip_rop"]),
+  sourceTable: sourceTableSchema,
+  sourceTableName: z.string().min(1).optional(),
   sourceField: z.string().min(1),
   ontologyClass: z.string().min(1),
   ontologyProperty: z.string().min(1),
@@ -300,7 +308,7 @@ export function mergeDatasetWithOntology(dataset: DemoDataset, document: Ontolog
 }
 
 export function importDatabaseRows(dataset: DemoDataset, request: DatabaseImportRequest): DatabaseImportResult {
-  const importedRecords = request.rows.map((row, index) => normalizeImportedRecord(request.sourceTable, row, index));
+  const importedRecords = request.rows.map((row, index) => normalizeImportedRecord(request.sourceTable, row, index, request.sourceTableName));
   const existingRecords = new Map(dataset.records.map((record) => [record.id, clone(record)]));
   for (const record of importedRecords) existingRecords.set(record.id, record);
 
@@ -597,8 +605,10 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function normalizeImportedRecord(sourceTable: ProcessRecord["source"], row: Record<string, unknown>, index: number): ProcessRecord {
-  return sourceTable === "rip_rop" ? normalizeImportedRipRop(row, index) : normalizeImportedMain(row, index);
+function normalizeImportedRecord(sourceTable: ProcessRecord["source"], row: Record<string, unknown>, index: number, sourceTableName?: string): ProcessRecord {
+  if (sourceTable === "rip_rop") return normalizeImportedRipRop(row, index);
+  if (sourceTable === "main") return normalizeImportedMain(row, index);
+  return normalizeImportedNewTable(row, index, sourceTableName);
 }
 
 function normalizeImportedMain(row: Record<string, unknown>, index: number): ProcessRecord {
@@ -654,26 +664,49 @@ function normalizeImportedRipRop(row: Record<string, unknown>, index: number): P
   };
 }
 
-function prefixedRecordId(prefix: "main" | "riprop", value: string): string {
-  const normalized = value.trim().replace(/\s+/g, "-");
+function normalizeImportedNewTable(row: Record<string, unknown>, index: number, sourceTableName?: string): ProcessRecord {
+  const tableName = sanitizeSourceTableName(sourceTableName);
+  const idValue = firstStringValue(row, ["id", "ID", "Id", "inspection_id", "record_id", "biz_id"]) ?? `import-${index + 1}`;
+  return {
+    id: prefixedRecordId(`table-${slugifyIdentifier(tableName)}`, idValue),
+    source: "new_table",
+    sourceTableName: tableName,
+    lineName: stringValue(row.line_name) || stringValue(row["产线"]),
+    deviceName: stringValue(row.device_name) || stringValue(row.Devicename) || stringValue(row["设备"]),
+    program: stringValue(row.prog_no) || stringValue(row["程序"]),
+    rivetId: stringValue(row.rivet_id) || stringValue(row["铆钉计数器"]),
+    carBodyId: stringValue(row.carbody_id) || stringValue(row["车身标识"]),
+    timestamp: stringValue(row.origin_time) || stringValue(row.create_time) || stringValue(row["日期/时间"]) || stringValue(row.timestamp),
+    raw: sanitizeImportedRow(row)
+  };
+}
+
+function prefixedRecordId(prefix: string, value: string): string {
+  const normalized = slugifyIdentifier(value);
   if (normalized.startsWith(`${prefix}-`)) return normalized;
   return `${prefix}-${normalized}`;
 }
 
 function mergeFieldMappings(existing: FieldMapping[], request: DatabaseImportRequest): FieldMapping[] {
   const merged = [...existing];
-  const known = new Set(merged.filter((item) => item.sourceTable === request.sourceTable).map((item) => item.sourceField));
+  const requestTableName = request.sourceTable === "new_table" ? sanitizeSourceTableName(request.sourceTableName) : undefined;
+  const known = new Set(merged
+    .filter((item) => item.sourceTable === request.sourceTable && (request.sourceTable !== "new_table" || item.sourceTableName === requestTableName))
+    .map((item) => item.sourceField));
   for (const row of request.rows) {
     for (const sourceField of Object.keys(row)) {
       if (known.has(sourceField)) continue;
       known.add(sourceField);
       merged.push({
         sourceTable: request.sourceTable,
+        sourceTableName: requestTableName,
         sourceField,
         ontologyClass: "SPR过程记录类",
         ontologyProperty: camelizeFieldName(sourceField),
         status: "需确认",
-        note: "由新增导入数据自动发现，已先挂接到 SPR过程记录类，等待业务确认后可细分到更准确的本体类。"
+        note: request.sourceTable === "new_table"
+          ? `由新增来源表 ${requestTableName} 自动发现，已先挂接到 SPR过程记录类，等待业务确认后可细分到更准确的本体类。`
+          : "由新增导入数据自动发现，已先挂接到 SPR过程记录类，等待业务确认后可细分到更准确的本体类。"
       });
     }
   }
@@ -683,6 +716,9 @@ function mergeFieldMappings(existing: FieldMapping[], request: DatabaseImportReq
 function rebuildSummary(summary: DemoDataset["summary"], records: ProcessRecord[], fieldMappings: FieldMapping[]): DemoDataset["summary"] {
   const main = records.filter((record) => record.source === "main");
   const rip = records.filter((record) => record.source === "rip_rop");
+  const newTableSourceRows = topCounts(records
+    .filter((record) => record.source === "new_table")
+    .map((record) => `${record.sourceTableName ?? "未命名新表"}（新增来源表）`));
   return {
     metrics: {
       ...summary.metrics,
@@ -700,7 +736,8 @@ function rebuildSummary(summary: DemoDataset["summary"], records: ProcessRecord[
       fault: topCounts(rip.map((record) => normalizeFault(record.faultCode))),
       source: [
         { name: "主数据库", value: main.length },
-        { name: "RIP_ROP", value: rip.length }
+        { name: "RIP_ROP", value: rip.length },
+        ...newTableSourceRows
       ]
     },
     conclusions: summary.conclusions
@@ -723,11 +760,12 @@ function refreshInstanceCounts(document: OntologyDocument, records: ProcessRecor
 
 function buildDatabaseImportSteps(request: DatabaseImportRequest, records: ProcessRecord[], dataset: DemoDataset): DatabaseImportAutomationStep[] {
   const fields = unique(request.rows.flatMap((row) => Object.keys(row)));
+  const sourceLabel = importSourceLabel(request);
   return [
     {
       key: "records",
       title: "记录导入",
-      detail: `已把 ${records.length} 条 ${request.sourceTable === "rip_rop" ? "RIP_ROP" : "主数据库"} 数据标准化为 ProcessRecord。`,
+      detail: `已把 ${records.length} 条 ${sourceLabel} 数据标准化为 ProcessRecord。`,
       status: "done"
     },
     {
@@ -812,6 +850,36 @@ function numberOrString(value: unknown): number | string | undefined {
   if (value === null || value === undefined) return undefined;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : String(value);
+}
+
+function firstStringValue(row: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = stringValue(row[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function sanitizeSourceTableName(value: string | undefined): string {
+  const text = value?.trim();
+  return text ? text : "未命名新表";
+}
+
+function slugifyIdentifier(value: string): string {
+  const ascii = value
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/_+/g, "-")
+    .toLowerCase();
+  return ascii || "new-table";
+}
+
+function importSourceLabel(request: DatabaseImportRequest): string {
+  if (request.sourceTable === "rip_rop") return "RIP_ROP";
+  if (request.sourceTable === "main") return "主数据库";
+  return `${sanitizeSourceTableName(request.sourceTableName)}（新增来源表）`;
 }
 
 function topCounts(values: Array<string | undefined>, limit = 10): Array<{ name: string; value: number }> {

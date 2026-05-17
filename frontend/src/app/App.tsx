@@ -127,8 +127,6 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
   const [message, setMessage] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<DatabaseImportResult | null>(null);
   const selectedSource = getDatabaseSourceOption(sourceTable);
-  const effectiveSourceTable = importMode === "table" && parsedTable?.detectedSourceTable ? parsedTable.detectedSourceTable : sourceTable;
-  const effectiveSource = getDatabaseSourceOption(effectiveSourceTable);
   const guidance = buildImportGuidance(importMode, sourceTable);
 
   useEffect(() => {
@@ -165,7 +163,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
         ? parseExcelWorkbook(await file.arrayBuffer())
         : parseImportText(await file.text(), format, "table");
       setParsedTable({ ...parsed, tableName: parsed.tableName || file.name });
-      if (parsed.detectedSourceTable) setSourceTable(parsed.detectedSourceTable);
+      if (parsed.detectedSourceTable && parsed.detectedSourceTable !== "new_table") setSourceTable(parsed.detectedSourceTable);
       setJsonRows("");
       setMessage(`已读取 ${file.name}，解析出 ${parsed.rows.length} 行。${parsed.detectionReason}`);
     } catch (error) {
@@ -191,7 +189,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
         textFormat: tableFormat,
         parsedTable
       });
-      const request = { sourceTable: requestDraft.sourceTable, rows: requestDraft.rows };
+      const request = { sourceTable: requestDraft.sourceTable, sourceTableName: requestDraft.sourceTableName, rows: requestDraft.rows };
       let result: DatabaseImportResult;
       let usedLocalFallback = false;
       if (token.trim().length > 0) {
@@ -207,7 +205,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
       }
       setLastResult(result);
       onImported(result);
-      setMessage(`已导入 ${result.importedRecordIds.length} 条记录到${getDatabaseSourceOption(requestDraft.sourceTable).shortLabel}，并自动刷新本体、图谱和检测输入。${usedLocalFallback ? "当前为页面内本地刷新；填写管理员令牌并连接 Worker 后可写入云端。" : "已写入 Worker 并返回刷新数据集。"}${importMode === "table" && !requestDraft.detectedSourceTable ? " 本次未自动识别来源表，已使用“无法识别时的备用归类”。" : ""}`);
+      setMessage(`已导入 ${result.importedRecordIds.length} 条记录到${importTargetLabel(requestDraft.sourceTable, requestDraft.sourceTableName)}，并自动刷新本体、图谱和检测输入。${usedLocalFallback ? "当前为页面内本地刷新；填写管理员令牌并连接 Worker 后可写入云端。" : "已写入 Worker 并返回刷新数据集。"}${importMode === "table" && !requestDraft.detectedSourceTable ? " 本次内容没有表名上下文，已使用“无法识别时的备用归类”。" : ""}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -222,7 +220,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
           <h3>数据库导入自动刷新</h3>
           <span>{dataset.records.length.toLocaleString("zh-CN")} 条当前记录</span>
         </div>
-        <p className="principle-copy">工作原理：系统当前面对的是同一个业务数据集，里面包含 main 主表和 RIP_ROP 表两类来源表。新增单条数据库行时需要手动指定目标来源表；导入整张数据库表时不需要先指定目标来源表，系统会先读取文件结构并自动判断来源表，只有无法判断时才使用备用归类。确认来源表后，系统会把原始数据标准化为 ProcessRecord，并自动刷新本体、图谱、字段映射和检测输入。</p>
+        <p className="principle-copy">工作原理：系统当前面对的是同一个业务数据集，里面已有 main 主表和 RIP_ROP 表两类来源表。新增单条数据库行时需要手动指定目标来源表；导入整张数据库表时不需要先指定目标来源表，系统会先读取文件结构并自动判断：属于 main、属于 RIP_ROP，或是一张新的来源表。确认来源表后，系统会把原始数据标准化为 ProcessRecord，并自动刷新本体、图谱、字段映射和检测输入。</p>
         <div className="import-mode-switch" role="tablist" aria-label="选择导入方式">
           <button type="button" className={importMode === "row" ? "active" : ""} onClick={() => handleModeChange("row")}>
             新增单条数据库行
@@ -239,7 +237,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <span>{importMode === "row" ? selectedSource.description : "整表导入会优先自动识别来源表；当文件字段不足或识别不明确时，才使用这里的备用归类。"}</span>
+            <span>{importMode === "row" ? selectedSource.description : "整表导入会优先自动识别 main、RIP_ROP 或新增来源表；只有粘贴 JSON 数组且没有表名上下文时，才使用这里的备用归类。"}</span>
           </label>
           <label>
             管理员令牌
@@ -251,7 +249,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
           <div className="table-file-import">
             <div>
               <strong>整张表文件导入</strong>
-              <p>支持 Excel（.xlsx/.xls）、CSV（.csv）、SQL INSERT（.sql）。上传后系统会读取表头、SQL 表名或 Excel 工作表名，自动判断这张表应进入 RIP_ROP 表还是 main 主表；JSON 数组只保留为高级调试入口。</p>
+              <p>支持 Excel（.xlsx/.xls）、CSV（.csv）、SQL INSERT（.sql）。上传后系统会读取表头、SQL 表名或 Excel 工作表名，自动判断这张表属于 RIP_ROP、main，还是一张新增来源表；JSON 数组只保留为高级调试入口。</p>
             </div>
             <label>
               选择表文件
@@ -259,7 +257,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
             </label>
             {parsedTable && (
               <div className="table-detection-result">
-                <strong>{parsedTable.detectedSourceTable ? `已自动识别：${getDatabaseSourceOption(parsedTable.detectedSourceTable).shortLabel}` : `未能自动识别，使用备用归类：${effectiveSource.shortLabel}`}</strong>
+                <strong>{parsedTable.detectedSourceTable ? `已自动识别：${importTargetLabel(parsedTable.detectedSourceTable, parsedTable.detectedSourceTableName ?? parsedTable.tableName)}` : `未能自动识别，使用备用归类：${selectedSource.shortLabel}`}</strong>
                 <span>{parsedTable.tableName ? `表名/工作表：${parsedTable.tableName}；` : ""}共 {parsedTable.rows.length} 行；格式：{formatLabel(parsedTable.format)}</span>
                 <p>{parsedTable.detectionReason}</p>
                 <p>已读取字段：{previewColumns(parsedTable.columns)}</p>
@@ -359,6 +357,11 @@ function formatLabel(format: ImportPayloadFormat): string {
     sql: "SQL",
     excel: "Excel"
   }[format];
+}
+
+function importTargetLabel(sourceTable: ProcessRecord["source"], sourceTableName?: string): string {
+  if (sourceTable === "new_table") return `${sourceTableName || "未命名新表"}（新增来源表）`;
+  return getDatabaseSourceOption(sourceTable).shortLabel;
 }
 
 function previewColumns(columns: string[]): string {
