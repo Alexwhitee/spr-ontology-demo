@@ -127,6 +127,24 @@ export type FieldMapping = {
   note: string;
 };
 
+export type DatabaseImportRequest = {
+  sourceTable: ProcessRecord["source"];
+  rows: Array<Record<string, unknown>>;
+};
+
+export type DatabaseImportAutomationStep = {
+  key: "records" | "fields" | "ontology" | "graph" | "flow";
+  title: string;
+  detail: string;
+  status: "done";
+};
+
+export type DatabaseImportResult = {
+  dataset: DemoDataset;
+  importedRecordIds: string[];
+  automationSteps: DatabaseImportAutomationStep[];
+};
+
 export type ReasoningResult = {
   recordId: string;
   conclusion: string;
@@ -278,6 +296,37 @@ export function mergeDatasetWithOntology(dataset: DemoDataset, document: Ontolog
     ...dataset,
     generatedAt: document.generatedAt ?? dataset.generatedAt,
     ...artifacts
+  };
+}
+
+export function importDatabaseRows(dataset: DemoDataset, request: DatabaseImportRequest): DatabaseImportResult {
+  const importedRecords = request.rows.map((row, index) => normalizeImportedRecord(request.sourceTable, row, index));
+  const existingRecords = new Map(dataset.records.map((record) => [record.id, clone(record)]));
+  for (const record of importedRecords) existingRecords.set(record.id, record);
+
+  const records = Array.from(existingRecords.values());
+  const fieldMappings = mergeFieldMappings(dataset.fieldMappings, request);
+  const summary = rebuildSummary(dataset.summary, records, fieldMappings);
+  const document = createOntologyDocumentFromDataset({
+    ...dataset,
+    records,
+    summary,
+    fieldMappings
+  });
+  refreshInstanceCounts(document, records);
+  const artifacts = deriveOntologyArtifacts(document);
+  const nextDataset: DemoDataset = {
+    ...dataset,
+    generatedAt: document.generatedAt ?? new Date().toISOString(),
+    summary,
+    records,
+    ...artifacts
+  };
+
+  return {
+    dataset: nextDataset,
+    importedRecordIds: importedRecords.map((record) => record.id),
+    automationSteps: buildDatabaseImportSteps(request, importedRecords, nextDataset)
   };
 }
 
@@ -546,4 +595,257 @@ function findTopCycle(nodes: Record<string, TopOntologyNode>): string[] | null {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function normalizeImportedRecord(sourceTable: ProcessRecord["source"], row: Record<string, unknown>, index: number): ProcessRecord {
+  return sourceTable === "rip_rop" ? normalizeImportedRipRop(row, index) : normalizeImportedMain(row, index);
+}
+
+function normalizeImportedMain(row: Record<string, unknown>, index: number): ProcessRecord {
+  const original = parseCurve(row.original_data);
+  const calculated = parseCurve(row.calculate_data);
+  const id = prefixedRecordId("main", stringValue(row.id) || stringValue(row.biz_id) || `import-${index + 1}`);
+  return {
+    id,
+    source: "main",
+    lineName: stringValue(row.line_name),
+    deviceName: stringValue(row.device_name),
+    program: stringValue(row.prog_no),
+    rivetId: stringValue(row.rivet_id),
+    carBodyId: stringValue(row.carbody_id),
+    timestamp: stringValue(row.origin_time) || stringValue(row.consumer_time) || stringValue(row.create_time),
+    predictionCategory: stringValue(row.pre),
+    errorRate: numberOrString(row.error_rate),
+    raw: sanitizeImportedRow(row),
+    curveSummary: {
+      original: summarizeCurve(original),
+      calculated: summarizeCurve(calculated)
+    },
+    curves: {
+      original,
+      calculated
+    }
+  };
+}
+
+function normalizeImportedRipRop(row: Record<string, unknown>, index: number): ProcessRecord {
+  const riveting = parseCurve(row["铆接曲线"]);
+  const envelope = parseCurve(row["包络线"]);
+  const id = prefixedRecordId("riprop", stringValue(row["实物编号"]) || stringValue(row.id) || `import-${index + 1}`);
+  return {
+    id,
+    source: "rip_rop",
+    lineName: "RIP_ROP",
+    deviceName: stringValue(row.Devicename),
+    program: stringValue(row["程序"]),
+    rivetId: stringValue(row["铆钉计数器"]),
+    carBodyId: stringValue(row["车身标识"]),
+    timestamp: stringValue(row["日期/时间"]),
+    faultCode: stringValue(row["故障代码"]),
+    raw: sanitizeImportedRow(row),
+    curveSummary: {
+      riveting: summarizeCurve(riveting),
+      envelope: summarizeCurve(envelope)
+    },
+    curves: {
+      riveting,
+      envelope
+    }
+  };
+}
+
+function prefixedRecordId(prefix: "main" | "riprop", value: string): string {
+  const normalized = value.trim().replace(/\s+/g, "-");
+  if (normalized.startsWith(`${prefix}-`)) return normalized;
+  return `${prefix}-${normalized}`;
+}
+
+function mergeFieldMappings(existing: FieldMapping[], request: DatabaseImportRequest): FieldMapping[] {
+  const merged = [...existing];
+  const known = new Set(merged.filter((item) => item.sourceTable === request.sourceTable).map((item) => item.sourceField));
+  for (const row of request.rows) {
+    for (const sourceField of Object.keys(row)) {
+      if (known.has(sourceField)) continue;
+      known.add(sourceField);
+      merged.push({
+        sourceTable: request.sourceTable,
+        sourceField,
+        ontologyClass: "SPR过程记录类",
+        ontologyProperty: camelizeFieldName(sourceField),
+        status: "需确认",
+        note: "由新增导入数据自动发现，已先挂接到 SPR过程记录类，等待业务确认后可细分到更准确的本体类。"
+      });
+    }
+  }
+  return merged;
+}
+
+function rebuildSummary(summary: DemoDataset["summary"], records: ProcessRecord[], fieldMappings: FieldMapping[]): DemoDataset["summary"] {
+  const main = records.filter((record) => record.source === "main");
+  const rip = records.filter((record) => record.source === "rip_rop");
+  return {
+    metrics: {
+      ...summary.metrics,
+      mainRecords: main.length,
+      ripRopRecords: rip.length,
+      mainFields: unique(fieldMappings.filter((mapping) => mapping.sourceTable === "main").map((mapping) => mapping.sourceField)).length,
+      ripRopFields: unique(fieldMappings.filter((mapping) => mapping.sourceTable === "rip_rop").map((mapping) => mapping.sourceField)).length
+    },
+    distributions: {
+      ...summary.distributions,
+      line: topCounts(main.map((record) => record.lineName)),
+      device: topCounts(main.map((record) => record.deviceName), 8),
+      prediction: topCounts(main.map((record) => record.predictionCategory)),
+      errorRate: topCounts(main.map((record) => String(record.errorRate ?? ""))),
+      fault: topCounts(rip.map((record) => normalizeFault(record.faultCode))),
+      source: [
+        { name: "主数据库", value: main.length },
+        { name: "RIP_ROP", value: rip.length }
+      ]
+    },
+    conclusions: summary.conclusions
+  };
+}
+
+function refreshInstanceCounts(document: OntologyDocument, records: ProcessRecord[]): void {
+  const counts: Record<string, number> = {
+    record: records.length,
+    line: unique(records.map((record) => record.lineName)).length,
+    device: unique(records.map((record) => record.deviceName)).length,
+    program: unique(records.map((record) => record.program)).length,
+    joint: unique(records.map((record) => record.rivetId)).length
+  };
+  for (const [id, count] of Object.entries(counts)) {
+    if (document.spr_ontology.nodes[id]) document.spr_ontology.nodes[id].instanceCount = count;
+  }
+  document.generatedAt = new Date().toISOString();
+}
+
+function buildDatabaseImportSteps(request: DatabaseImportRequest, records: ProcessRecord[], dataset: DemoDataset): DatabaseImportAutomationStep[] {
+  const fields = unique(request.rows.flatMap((row) => Object.keys(row)));
+  return [
+    {
+      key: "records",
+      title: "记录导入",
+      detail: `已把 ${records.length} 条 ${request.sourceTable === "rip_rop" ? "RIP_ROP" : "主数据库"} 数据标准化为 ProcessRecord。`,
+      status: "done"
+    },
+    {
+      key: "fields",
+      title: "字段识别",
+      detail: `识别 ${fields.length} 个字段；新增字段会自动补入字段映射并标记为“需确认”。`,
+      status: "done"
+    },
+    {
+      key: "ontology",
+      title: "本体刷新",
+      detail: `已刷新 SPR过程记录类实例数为 ${dataset.spr_ontology.nodes.record?.instanceCount ?? dataset.records.length}，并同步字段映射。`,
+      status: "done"
+    },
+    {
+      key: "graph",
+      title: "图谱重建",
+      detail: `已重新派生 ${dataset.ontology.nodes.length} 个图节点和 ${dataset.ontology.edges.length} 条图关系。`,
+      status: "done"
+    },
+    {
+      key: "flow",
+      title: "检测链路可用",
+      detail: `新记录 ${records.map((record) => record.id).join("、")} 已可进入检测、根因和预警流程。`,
+      status: "done"
+    }
+  ];
+}
+
+function parseCurve(value: unknown): number[] {
+  if (typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((part) => Number(part.trim()))
+    .filter((item) => Number.isFinite(item));
+}
+
+function summarizeCurve(points: number[]): CurveSummary {
+  if (points.length === 0) return { pointCount: 0, min: 0, max: 0, avg: 0, peakIndex: -1 };
+  let min = points[0];
+  let max = points[0];
+  let peakIndex = 0;
+  let sum = 0;
+  points.forEach((point, index) => {
+    if (point < min) min = point;
+    if (point > max) {
+      max = point;
+      peakIndex = index;
+    }
+    sum += point;
+  });
+  return {
+    pointCount: points.length,
+    min: round(min),
+    max: round(max),
+    avg: round(sum / points.length),
+    peakIndex
+  };
+}
+
+function sanitizeImportedRow(row: Record<string, unknown>): ProcessRecord["raw"] {
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => {
+    if (value instanceof Date) return [key, value.toISOString()];
+    if (typeof value === "string" && value.length > 160) {
+      const pointCount = value.split(",").filter((part) => part.trim()).length;
+      return [key, `[长序列字段，${pointCount} 个点，详情按需加载]`];
+    }
+    if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return [key, value];
+    if (value === undefined) return [key, null];
+    return [key, String(value)];
+  }));
+}
+
+function stringValue(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (value instanceof Date) return value.toISOString();
+  const text = String(value);
+  return text.trim().length > 0 ? text : undefined;
+}
+
+function numberOrString(value: unknown): number | string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : String(value);
+}
+
+function topCounts(values: Array<string | undefined>, limit = 10): Array<{ name: string; value: number }> {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const key = value && value.trim() ? value : "未提供";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([name, value]) => ({ name, value }));
+}
+
+function unique(values: Array<string | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim()))));
+}
+
+function normalizeFault(value: string | undefined): string {
+  if (!value || value === "-") return "正常或未标记";
+  return value.replace(/^DDC:\s*/, "");
+}
+
+function camelizeFieldName(value: string): string {
+  const ascii = value
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+  const parts = ascii.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "importedField";
+  const [first, ...rest] = parts;
+  return [first.toLowerCase(), ...rest.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)].join("");
+}
+
+function round(value: number): number {
+  return Number(value.toFixed(3));
 }

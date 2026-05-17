@@ -42,6 +42,30 @@ export type DetectionTraceStep = {
   durationMs?: number;
 };
 
+export type DetectionTraceExplanation = {
+  stepKey: DetectionTraceStep["key"];
+  title: string;
+  inputMeaning: string;
+  callMeaning: string;
+  operationMeaning: string;
+  outputMeaning: string;
+  plainLanguageSummary: string;
+};
+
+export const TRACE_EXPLANATION_LABELS = {
+  inputMeaning: "输入数据说明",
+  callMeaning: "接口调用方式",
+  operationMeaning: "系统处理逻辑",
+  outputMeaning: "输出结果说明"
+} as const;
+
+export type RecordOptionGroup = {
+  source: ProcessRecord["source"];
+  label: string;
+  description: string;
+  records: ProcessRecord[];
+};
+
 export type DetectionFlowState = {
   phase: DetectionRequestPhase;
   recordId: string;
@@ -51,20 +75,48 @@ export type DetectionFlowState = {
 };
 
 export function buildRecordOptionLabel(record: ProcessRecord): string {
-  const fault = normalizeFaultCode(record.faultCode);
-  if (fault) return `${record.id} / 故障：${fault}`;
-  if (record.predictionCategory) return `${record.id} / pre编码：${record.predictionCategory}`;
-  return `${record.id} / 未触发明确故障`;
+  const fragments = [
+    sourceTableLabel(record.source),
+    qualityClueLabel(record),
+    record.deviceName ? `设备：${record.deviceName}` : "设备：未提供",
+    record.timestamp ? `时间：${record.timestamp}` : "时间：未提供",
+    `记录ID：${record.id}`
+  ];
+  return fragments.join(" | ");
+}
+
+export function buildRecordOptionGroups(records: ProcessRecord[], selectedRecordId?: string, limitPerSource = 60): RecordOptionGroup[] {
+  const selected = selectedRecordId ? records.find((record) => record.id === selectedRecordId) : undefined;
+  return (["rip_rop", "main"] as const).map((source) => {
+    const sourceRecords = records
+      .filter((record) => record.source === source)
+      .sort(compareRecordsForPicker);
+    const limited = sourceRecords.slice(0, limitPerSource);
+    const selectedInSource = selected?.source === source && !limited.some((record) => record.id === selected.id)
+      ? [selected, ...limited]
+      : limited;
+    return {
+      source,
+      label: source === "rip_rop"
+        ? `RIP_ROP 表：铆接过程明细（${sourceRecords.length.toLocaleString("zh-CN")} 条）`
+        : `main 主表：主过程记录与预测编码（${sourceRecords.length.toLocaleString("zh-CN")} 条）`,
+      description: source === "rip_rop"
+        ? "RIP_ROP 表来自铆接过程明细，优先显示带故障代码、曲线和包络线的记录，适合演示异常检测。"
+        : "main 主表来自主过程记录，pre 是模型或算法输出的预测编码；编码业务含义尚待确认，所以系统会保守标注为待复核线索。",
+      records: selectedInSource
+    };
+  }).filter((group) => group.records.length > 0);
 }
 
 export function buildRecordInputSummary(record: ProcessRecord | undefined): Array<{ label: string; value: string }> {
   if (!record) return [{ label: "记录", value: "未选择" }];
   return [
     { label: "记录 ID", value: record.id },
-    { label: "来源表", value: record.source === "rip_rop" ? "RIP_ROP" : "主数据库 main" },
+    { label: "来源表", value: sourceTableLabel(record.source) },
     { label: "设备", value: record.deviceName || "未提供" },
     { label: "程序", value: record.program || "未提供" },
-    { label: "质量线索", value: normalizeFaultCode(record.faultCode) || (record.predictionCategory ? `pre 编码 ${record.predictionCategory}` : "未触发明确故障") }
+    { label: "时间", value: record.timestamp || "未提供" },
+    { label: "质量线索", value: qualityClueLabel(record) }
   ];
 }
 
@@ -181,6 +233,65 @@ export function buildDetectionTraceSteps(state: DetectionFlowState & {
   ];
 }
 
+export function buildDetectionTraceExplanations(steps: DetectionTraceStep[]): DetectionTraceExplanation[] {
+  return steps.map((step) => {
+    const endpoint = step.endpoint ? `${step.method} ${step.endpoint}` : "本地整理，不发起网络请求";
+    if (step.key === "input") {
+      return {
+        stepKey: step.key,
+        title: step.title,
+        inputMeaning: "输入对象是一条已经标准化的 ProcessRecord 过程记录。它把原始数据库行中的设备、程序、时间、车身标识、铆钉编号、故障代码、pre 预测编码、曲线摘要和原始字段统一放到同一个结构中，后续流程不再直接依赖某一张表的字段名称。",
+        callMeaning: "本阶段属于页面内的数据准备阶段，不发起新的网络请求。页面会从当前数据集中读取用户选择的记录，并生成后续检测接口需要的 JSON 请求体。",
+        operationMeaning: "系统确认记录 ID 后，会保留 recordId 和 includeCurveSummary=true。recordId 用于让后端定位完整记录，includeCurveSummary 表示检测时同步携带曲线统计摘要，便于规则或模型判断曲线是否越过包络线。",
+        outputMeaning: "输出结果是检测请求草稿，核心字段包括 recordId、includeCurveSummary 和语义路径。它不是最终检测结论，而是发送到检测 API 前的标准化输入。",
+        plainLanguageSummary: "本步骤的作用是把一行数据库数据整理成后端能够稳定识别的检测任务。"
+      };
+    }
+    if (step.key === "detect") {
+      return {
+        stepKey: step.key,
+        title: step.title,
+        inputMeaning: "输入数据是检测请求 JSON，通常包含 recordId 和 includeCurveSummary。后端会根据 recordId 读取完整 ProcessRecord，包括故障代码、pre 预测编码、error_rate、铆接曲线摘要和包络线摘要。",
+        callMeaning: `接口调用采用 ${endpoint}。请求体以 JSON 形式提交，返回值也使用 JSON，便于页面把检测类别、证据字段和异常事件逐项展示出来。`,
+        operationMeaning: "Worker 会先查找记录，再按照本体规则或模型策略进行判断：RIP_ROP 表优先使用故障代码和曲线/包络线摘要；main 主表优先保留 pre 与 error_rate 作为预测线索。系统会把结果归入正常、曲线高于包络线、曲线低于包络线、冲压行程过大或预测结果待复核等类别。",
+        outputMeaning: "输出结果是结构化检测结论，包含预测类别、置信度、严重等级、证据字段、异常事件和本体路径。页面后续的根因分析和预警报告都基于这个输出继续处理。",
+        plainLanguageSummary: "本步骤把一条数据库记录转换成可解释、可追溯的质量检测判断。"
+      };
+    }
+    if (step.key === "root") {
+      return {
+        stepKey: step.key,
+        title: step.title,
+        inputMeaning: "输入数据是检测 API 的输出，重点包括异常类别、异常事件、触发证据和本体路径。只有先知道“发生了哪类异常”，根因分析才能继续推断“可能由什么导致”。",
+        callMeaning: `接口调用采用 ${endpoint}。页面会把检测结果作为 JSON 请求体传入，不需要用户再次手动填写故障代码或曲线字段。`,
+        operationMeaning: "系统根据质量规则和 OWL2 本体关系，把异常事件映射到候选根因。例如曲线高于包络线会关联到铆接力参数偏高、铆模状态异常、设备输出波动等候选原因，并同时保留证据字段。",
+        outputMeaning: "输出结果是根因候选列表。每个候选根因都会带有置信度、证据字段和建议复核动作，因此它是辅助人工复核的依据，而不是直接替代人工定责。",
+        plainLanguageSummary: "本步骤把检测出的异常继续解释为可复核的原因方向。"
+      };
+    }
+    if (step.key === "report") {
+      return {
+        stepKey: step.key,
+        title: step.title,
+        inputMeaning: "输入数据由两部分组成：检测结果说明异常是什么，根因分析结果说明可能原因和证据是什么。预警报告会同时读取这两部分，避免只给出孤立的模型分数。",
+        callMeaning: `接口调用采用 ${endpoint}。页面将检测结果和根因结果一起提交为 JSON，请求后端生成可复核的报告内容。`,
+        operationMeaning: "系统把技术侧的检测类别、根因候选、证据字段和严重等级整理成质量人员能够执行的任务，包括报告标题、摘要、触发规则、复核动作和本体路径。",
+        outputMeaning: "输出结果是预警报告。它包含严重等级、摘要、触发规则、复核动作和 OWL2 本体路径，便于后续汇报、追溯和闭环处理。",
+        plainLanguageSummary: "本步骤把算法和规则结果整理成质量人员可以直接阅读和处理的预警任务。"
+      };
+    }
+    return {
+      stepKey: step.key,
+      title: step.title,
+      inputMeaning: "输入数据是前面所有阶段的结果集合，包括检测结论、根因候选、预警报告和本体路径。它反映了从数据库记录到业务报告的完整链路。",
+      callMeaning: "本阶段属于页面汇总展示，不再调用新的后端 API。页面直接读取前面各接口已经返回的结果。",
+      operationMeaning: "系统把各阶段输出串联成一条可追溯链路：数据库记录进入检测流程，检测结果生成异常事件，异常事件关联根因候选，最后形成预警报告。",
+      outputMeaning: "输出结果是最终透明结论，包含判断文案、严重等级、触发规则、建议动作和 OWL2 本体路径，便于用户核对每一步的来源。",
+      plainLanguageSummary: "本步骤把从数据库记录到预警报告的全流程收束成一份可检查的解释链。"
+    };
+  });
+}
+
 export function summarizeDetectionOutcome(detection: DetectionResult | null): {
   confidenceLabel: string;
   modeLabel: string;
@@ -272,6 +383,41 @@ function statusForStep(phase: DetectionRequestPhase, current: DetectionRequestPh
 function normalizeFaultCode(value: string | undefined): string {
   if (!value || value === "-") return "";
   return value.replace(/^DDC:\s*/, "");
+}
+
+function sourceTableLabel(source: ProcessRecord["source"]): string {
+  return source === "rip_rop" ? "RIP_ROP 表（铆接过程明细）" : "main 主表（主过程记录）";
+}
+
+function qualityClueLabel(record: ProcessRecord): string {
+  const fault = normalizeFaultCode(record.faultCode);
+  if (fault) return `故障代码：${fault}`;
+  if (record.predictionCategory) return `预测编码 pre=${record.predictionCategory}（业务含义待确认）`;
+  if (record.errorRate !== undefined && record.errorRate !== "") return `误差率 error_rate=${record.errorRate}`;
+  return "未触发明确故障线索";
+}
+
+function compareRecordsForPicker(left: ProcessRecord, right: ProcessRecord): number {
+  const leftScore = recordPickerPriority(left);
+  const rightScore = recordPickerPriority(right);
+  if (leftScore !== rightScore) return rightScore - leftScore;
+  return timestampValue(right.timestamp) - timestampValue(left.timestamp);
+}
+
+function recordPickerPriority(record: ProcessRecord): number {
+  let score = 0;
+  if (normalizeFaultCode(record.faultCode)) score += 40;
+  if (record.curveSummary?.riveting || record.curveSummary?.envelope) score += 20;
+  if (record.predictionCategory && record.predictionCategory !== "1.000") score += 16;
+  if (record.errorRate && Number(record.errorRate) > 0) score += 10;
+  return score;
+}
+
+function timestampValue(value: string | undefined): number {
+  if (!value) return 0;
+  const normalized = value.replace(/\//g, "-");
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function categoryLabel(value: DetectionResult["prediction"]["category"]): string {

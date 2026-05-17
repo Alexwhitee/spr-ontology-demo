@@ -7,76 +7,76 @@
     <rdfs:comment>Generated OWL2 module for core.owl.</rdfs:comment>
   </owl:Ontology>
   <owl:Class rdf:about="#Entity">
-    <rdfs:label>Entity</rdfs:label>
-    <rdfs:comment>Base class for managed ontology objects.</rdfs:comment>
+    <rdfs:label>实体</rdfs:label>
+    <rdfs:comment>本体中所有可管理对象的基础父类。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#VersionedEntity">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>VersionedEntity</rdfs:label>
-    <rdfs:comment>Objects with version and lifecycle metadata.</rdfs:comment>
+    <rdfs:label>版本化实体</rdfs:label>
+    <rdfs:comment>带版本号、生命周期和变更记录的对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#TraceableEntity">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>TraceableEntity</rdfs:label>
-    <rdfs:comment>Objects with source and traceability metadata.</rdfs:comment>
+    <rdfs:label>可追溯实体</rdfs:label>
+    <rdfs:comment>可以追踪来源、时间和证据链的对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Document">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>Document</rdfs:label>
-    <rdfs:comment>Standards, SOPs, reports, and records.</rdfs:comment>
+    <rdfs:label>文档</rdfs:label>
+    <rdfs:comment>标准、SOP、报告、数据库记录说明等文档对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ExpertDocument">
     <rdfs:subClassOf rdf:resource="#Document"/>
-    <rdfs:label>ExpertDocument</rdfs:label>
-    <rdfs:comment>Expert documents used to extract quality rules.</rdfs:comment>
+    <rdfs:label>专家文档</rdfs:label>
+    <rdfs:comment>用于抽取质量规则和复核知识的专家经验文档。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Rule">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Rule</rdfs:label>
-    <rdfs:comment>Reusable constraints and reasoning rules.</rdfs:comment>
+    <rdfs:label>规则</rdfs:label>
+    <rdfs:comment>可复用的判定、约束或推理规则。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Event">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>Event</rdfs:label>
-    <rdfs:comment>Business or process events.</rdfs:comment>
+    <rdfs:label>事件</rdfs:label>
+    <rdfs:comment>业务、工艺或质量过程中发生的状态变化。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Action">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Action</rdfs:label>
-    <rdfs:comment>Executable semantic action.</rdfs:comment>
+    <rdfs:label>动作</rdfs:label>
+    <rdfs:comment>系统或人员可以执行的处理动作。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Service">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Service</rdfs:label>
-    <rdfs:comment>Callable capability or service.</rdfs:comment>
+    <rdfs:label>服务</rdfs:label>
+    <rdfs:comment>可调用的模型、接口或系统能力。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Report">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>Report</rdfs:label>
-    <rdfs:comment>Generated analysis report.</rdfs:comment>
+    <rdfs:label>报告</rdfs:label>
+    <rdfs:comment>由检测、分析或复核流程生成的结论文档。</rdfs:comment>
   </owl:Class>
   <owl:ObjectProperty rdf:about="#hasSourceDocument">
-    <rdfs:label>hasSourceDocument</rdfs:label>
+    <rdfs:label>来源文档</rdfs:label>
     <rdfs:domain rdf:resource="#TraceableEntity"/>
     <rdfs:range rdf:resource="#Document"/>
   </owl:ObjectProperty>
   <owl:DatatypeProperty rdf:about="#hasVersion">
-    <rdfs:label>hasVersion</rdfs:label>
+    <rdfs:label>版本号</rdfs:label>
     <rdfs:domain rdf:resource="#VersionedEntity"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:ObjectProperty rdf:about="#triggeredBy">
-    <rdfs:label>triggeredBy</rdfs:label>
+    <rdfs:label>由事件触发</rdfs:label>
     <rdfs:domain rdf:resource="#Action"/>
     <rdfs:range rdf:resource="#Event"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#generatesReport">
-    <rdfs:label>generatesReport</rdfs:label>
+    <rdfs:label>生成报告</rdfs:label>
     <rdfs:domain rdf:resource="#Action"/>
     <rdfs:range rdf:resource="#Report"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasRule">
-    <rdfs:label>hasRule</rdfs:label>
+    <rdfs:label>拥有规则</rdfs:label>
     <rdfs:domain rdf:resource="#Entity"/>
     <rdfs:range rdf:resource="#Rule"/>
   </owl:ObjectProperty>

@@ -2,6 +2,7 @@ import { explainRecord } from "./services/reasoning";
 import {
   applyOntologyOperations,
   createOntologyDocumentFromDataset,
+  importDatabaseRows,
   mergeDatasetWithOntology,
   validateOntologyDocument,
   type OntologyDocument
@@ -22,11 +23,12 @@ import {
   type RuleReviewStatus,
   type RootCauseAnalysis
 } from "../../shared/ontology-service";
-import type { DemoDataset, Env, OntologyOperation, ProcessRecord, SprOntologyNode, SprOntologyRelation, TopSprMapping } from "./types/demo";
+import type { DatabaseImportRequest, DemoDataset, Env, OntologyOperation, ProcessRecord, SprOntologyNode, SprOntologyRelation, TopSprMapping } from "./types/demo";
 
 const DEFAULT_DATASET_URL = "https://spr-ontology-demo.pages.dev/data/demo-dataset.json";
 const DEFAULT_CURVE_BASE_URL = "https://spr-ontology-demo.pages.dev/data/curves";
 let cachedDataset: { value: DemoDataset; expiresAt: number } | null = null;
+let runtimeImportedDataset: DemoDataset | null = null;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -39,6 +41,7 @@ export default {
       if (url.pathname === "/api/ontology/operations") return handleOntologyOperations(request, env);
       if (url.pathname === "/api/ontology/versions") return handleOntologyVersions(request, env);
       if (url.pathname.startsWith("/api/ontology/versions/") && url.pathname.endsWith("/restore")) return handleOntologyRestore(request, env, url);
+      if (url.pathname === "/api/dataset/import") return handleDatasetImport(request, env);
 
       const dataset = await getDataset(env);
       if (url.pathname === "/api/dataset") return json(dataset, env);
@@ -94,6 +97,7 @@ export default {
 };
 
 async function getDataset(env: Env): Promise<DemoDataset> {
+  if (runtimeImportedDataset) return runtimeImportedDataset;
   const dataset = await getBaseDataset(env);
   const currentDocument = await getStoredOntologyDocument(env);
   return currentDocument ? mergeDatasetWithOntology(dataset, currentDocument) : dataset;
@@ -165,6 +169,24 @@ async function handleOntologyRestore(request: Request, env: Env, url: URL): Prom
   const body = await request.json().catch(() => ({ message: undefined })) as { message?: string };
   const version = await saveOntologyVersion(env, document, body.message ?? `Restore ontology version ${versionId}`);
   return json({ versionId: version.id, document }, env);
+}
+
+async function handleDatasetImport(request: Request, env: Env): Promise<Response> {
+  const unauthorized = requireAdmin(request, env);
+  if (unauthorized) return unauthorized;
+  if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
+  const body = await request.json().catch(() => ({})) as Partial<DatabaseImportRequest>;
+  if (body.sourceTable !== "main" && body.sourceTable !== "rip_rop") {
+    return json({ error: "sourceTable must be main or rip_rop" }, env, 400);
+  }
+  if (!Array.isArray(body.rows) || body.rows.length === 0) {
+    return json({ error: "rows must be a non-empty array" }, env, 400);
+  }
+  const base = runtimeImportedDataset ?? await getDataset(env);
+  const result = importDatabaseRows(base, { sourceTable: body.sourceTable, rows: body.rows });
+  runtimeImportedDataset = result.dataset;
+  cachedDataset = { value: result.dataset, expiresAt: Date.now() + 60_000 };
+  return json(result, env);
 }
 
 async function getStoredOntologyDocument(env: Env): Promise<OntologyDocument | null> {

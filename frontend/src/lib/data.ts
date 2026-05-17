@@ -1,4 +1,4 @@
-import type { DemoDataset, OntologyDocument, OntologyOperation, ProcessRecord } from "../types/demo";
+import type { DatabaseImportRequest, DatabaseImportResult, DemoDataset, OntologyDocument, OntologyOperation, ProcessRecord } from "../types/demo";
 import { validateOntologyDocument } from "../../../shared/ontology";
 import type {
   DetectionRequest,
@@ -125,6 +125,17 @@ export async function loadRemoteOwl(): Promise<string> {
   const response = await fetch(apiUrl("/api/ontology/owl"));
   if (!response.ok) throw new Error(`无法导出 OWL2：${response.status}`);
   return response.text();
+}
+
+export async function importDatabaseRowsRemote(request: DatabaseImportRequest, token: string): Promise<DatabaseImportResult> {
+  const response = await fetch(apiUrl("/api/dataset/import"), {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(request)
+  });
+  const value = await response.json().catch(() => ({})) as DatabaseImportResult & { error?: string };
+  if (!response.ok) throw new Error(labelApiError(value.error, response.status));
+  return value;
 }
 
 export function resolveApiUrl(path: string, options: { dataMode?: string; apiBaseUrl?: string; isProduction?: boolean } = {}): string {

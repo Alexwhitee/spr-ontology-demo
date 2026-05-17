@@ -8,67 +8,67 @@
   </owl:Ontology>
   <owl:Class rdf:about="#SPRProcess">
     <rdfs:subClassOf rdf:resource="#ManufacturingProcess"/>
-    <rdfs:label>SPRProcess</rdfs:label>
-    <rdfs:comment>SPR process extension.</rdfs:comment>
+    <rdfs:label>SPR工艺</rdfs:label>
+    <rdfs:comment>SPR 自冲铆工艺扩展。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRProcessRecord">
     <rdfs:subClassOf rdf:resource="#OnlineProcessRecord"/>
-    <rdfs:label>SPRProcessRecord</rdfs:label>
-    <rdfs:comment>SPR online process record.</rdfs:comment>
+    <rdfs:label>SPR过程记录</rdfs:label>
+    <rdfs:comment>每一条 SPR 数据库记录的统一承载入口。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRConnectionPoint">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>SPRConnectionPoint</rdfs:label>
-    <rdfs:comment>SPR connection point.</rdfs:comment>
+    <rdfs:label>SPR连接点</rdfs:label>
+    <rdfs:comment>SPR 铆点或连接特征。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRRivet">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>SPRRivet</rdfs:label>
-    <rdfs:comment>SPR rivet.</rdfs:comment>
+    <rdfs:label>SPR铆钉</rdfs:label>
+    <rdfs:comment>SPR 工艺使用的铆钉对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRDie">
     <rdfs:subClassOf rdf:resource="#Tooling"/>
-    <rdfs:label>SPRDie</rdfs:label>
-    <rdfs:comment>SPR die or rivet die.</rdfs:comment>
+    <rdfs:label>SPR铆模</rdfs:label>
+    <rdfs:comment>SPR 工艺中的铆模或模具。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRProgram">
     <rdfs:subClassOf rdf:resource="#Program"/>
-    <rdfs:label>SPRProgram</rdfs:label>
-    <rdfs:comment>SPR process program.</rdfs:comment>
+    <rdfs:label>SPR程序</rdfs:label>
+    <rdfs:comment>SPR 设备执行的工艺程序。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRParameterSet">
     <rdfs:subClassOf rdf:resource="#ParameterSet"/>
-    <rdfs:label>SPRParameterSet</rdfs:label>
-    <rdfs:comment>SPR parameter set.</rdfs:comment>
+    <rdfs:label>SPR参数集</rdfs:label>
+    <rdfs:comment>SPR 工艺参数集合。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRCurveData">
     <rdfs:subClassOf rdf:resource="#CurveData"/>
-    <rdfs:label>SPRCurveData</rdfs:label>
-    <rdfs:comment>SPR curve data.</rdfs:comment>
+    <rdfs:label>SPR曲线数据</rdfs:label>
+    <rdfs:comment>SPR 过程中的实际曲线和派生曲线。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPREnvelopeCurve">
     <rdfs:subClassOf rdf:resource="#EnvelopeCurve"/>
-    <rdfs:label>SPREnvelopeCurve</rdfs:label>
-    <rdfs:comment>SPR envelope curve.</rdfs:comment>
+    <rdfs:label>SPR包络线</rdfs:label>
+    <rdfs:comment>SPR 曲线判断使用的包络线。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRInspectionProcess">
     <rdfs:subClassOf rdf:resource="#InspectionProcess"/>
-    <rdfs:label>SPRInspectionProcess</rdfs:label>
-    <rdfs:comment>SPR inspection process.</rdfs:comment>
+    <rdfs:label>SPR检测流程</rdfs:label>
+    <rdfs:comment>读取 SPR 过程记录、调用模型或规则并生成检测结果的流程。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRInspectionResult">
     <rdfs:subClassOf rdf:resource="#InspectionResult"/>
-    <rdfs:label>SPRInspectionResult</rdfs:label>
-    <rdfs:comment>SPR inspection result.</rdfs:comment>
+    <rdfs:label>SPR检测结果</rdfs:label>
+    <rdfs:comment>SPR 检测流程输出的质量结果。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRDefectPattern">
     <rdfs:subClassOf rdf:resource="#DefectPattern"/>
-    <rdfs:label>SPRDefectPattern</rdfs:label>
-    <rdfs:comment>SPR defect pattern.</rdfs:comment>
+    <rdfs:label>SPR缺陷模式</rdfs:label>
+    <rdfs:comment>SPR 场景中的缺陷或异常类型。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#SPRRootCause">
     <rdfs:subClassOf rdf:resource="#RootCause"/>
-    <rdfs:label>SPRRootCause</rdfs:label>
-    <rdfs:comment>SPR root cause.</rdfs:comment>
+    <rdfs:label>SPR根因</rdfs:label>
+    <rdfs:comment>SPR 缺陷对应的候选根因。</rdfs:comment>
   </owl:Class>
 </rdf:RDF>

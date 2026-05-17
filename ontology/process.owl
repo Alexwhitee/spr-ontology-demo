@@ -8,126 +8,126 @@
   </owl:Ontology>
   <owl:Class rdf:about="#ManufacturingProcess">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ManufacturingProcess</rdfs:label>
-    <rdfs:comment>Top-level process abstraction.</rdfs:comment>
+    <rdfs:label>制造工艺</rdfs:label>
+    <rdfs:comment>工艺过程的顶层抽象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ProcessRoute">
     <rdfs:subClassOf rdf:resource="#VersionedEntity"/>
-    <rdfs:label>ProcessRoute</rdfs:label>
-    <rdfs:comment>A route containing operations and steps.</rdfs:comment>
+    <rdfs:label>工艺路线</rdfs:label>
+    <rdfs:comment>由多个工序和步骤组成的工艺路线。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ProcessOperation">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ProcessOperation</rdfs:label>
-    <rdfs:comment>Operation phase within a process route.</rdfs:comment>
+    <rdfs:label>工序</rdfs:label>
+    <rdfs:comment>工艺路线中的一个操作阶段。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ProcessStep">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ProcessStep</rdfs:label>
-    <rdfs:comment>Executable process step.</rdfs:comment>
+    <rdfs:label>工艺步骤</rdfs:label>
+    <rdfs:comment>可以执行、配置参数并产生数据的最小步骤。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ParameterSet">
     <rdfs:subClassOf rdf:resource="#VersionedEntity"/>
-    <rdfs:label>ParameterSet</rdfs:label>
-    <rdfs:comment>Parameter collection used by a step.</rdfs:comment>
+    <rdfs:label>参数集</rdfs:label>
+    <rdfs:comment>力、行程、阈值等工艺参数的集合。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ProcessWindow">
     <rdfs:subClassOf rdf:resource="#VersionedEntity"/>
-    <rdfs:label>ProcessWindow</rdfs:label>
-    <rdfs:comment>Allowed process boundary.</rdfs:comment>
+    <rdfs:label>工艺窗口</rdfs:label>
+    <rdfs:comment>用于判断过程是否合格的边界、阈值或参考窗口。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#OnlineProcessRecord">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>OnlineProcessRecord</rdfs:label>
-    <rdfs:comment>Online record collected from equipment or data platform.</rdfs:comment>
+    <rdfs:label>在线过程记录</rdfs:label>
+    <rdfs:comment>从设备或数据库采集到的一条在线过程数据。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ProcessData">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>ProcessData</rdfs:label>
-    <rdfs:comment>Data produced during process execution.</rdfs:comment>
+    <rdfs:label>过程数据</rdfs:label>
+    <rdfs:comment>工艺执行过程中产生的数据对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#CurveData">
     <rdfs:subClassOf rdf:resource="#ProcessData"/>
-    <rdfs:label>CurveData</rdfs:label>
-    <rdfs:comment>Sampled curve data.</rdfs:comment>
+    <rdfs:label>曲线数据</rdfs:label>
+    <rdfs:comment>由一串采样点组成的过程曲线。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ReferenceCurve">
     <rdfs:subClassOf rdf:resource="#CurveData"/>
-    <rdfs:label>ReferenceCurve</rdfs:label>
-    <rdfs:comment>Reference curve used for evaluation.</rdfs:comment>
+    <rdfs:label>参考曲线</rdfs:label>
+    <rdfs:comment>用于评价实际曲线的基准曲线。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#EnvelopeCurve">
     <rdfs:subClassOf rdf:resource="#ReferenceCurve"/>
-    <rdfs:label>EnvelopeCurve</rdfs:label>
-    <rdfs:comment>Envelope boundary for curve-based process judgment.</rdfs:comment>
+    <rdfs:label>包络线</rdfs:label>
+    <rdfs:comment>用于判断实际曲线是否越界的参考边界。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#DataProcessingProcess">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>DataProcessingProcess</rdfs:label>
-    <rdfs:comment>Processing pipeline from raw data to derived data.</rdfs:comment>
+    <rdfs:label>数据处理流程</rdfs:label>
+    <rdfs:comment>从原始数据到特征、结果和报告的处理流水线。</rdfs:comment>
   </owl:Class>
   <owl:ObjectProperty rdf:about="#hasOperation">
-    <rdfs:label>hasOperation</rdfs:label>
+    <rdfs:label>包含工序</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessRoute"/>
     <rdfs:range rdf:resource="#ProcessOperation"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasStep">
-    <rdfs:label>hasStep</rdfs:label>
+    <rdfs:label>包含步骤</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessOperation"/>
     <rdfs:range rdf:resource="#ProcessStep"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#usesParameterSet">
-    <rdfs:label>usesParameterSet</rdfs:label>
+    <rdfs:label>使用参数集</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessStep"/>
     <rdfs:range rdf:resource="#ParameterSet"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasProcessWindow">
-    <rdfs:label>hasProcessWindow</rdfs:label>
+    <rdfs:label>拥有工艺窗口</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessStep"/>
     <rdfs:range rdf:resource="#ProcessWindow"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasProcessData">
-    <rdfs:label>hasProcessData</rdfs:label>
+    <rdfs:label>包含过程数据</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="#ProcessData"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasCurveData">
-    <rdfs:label>hasCurveData</rdfs:label>
+    <rdfs:label>包含曲线数据</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="#CurveData"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasReferenceCurve">
-    <rdfs:label>hasReferenceCurve</rdfs:label>
+    <rdfs:label>包含参考曲线</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#ReferenceCurve"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasEnvelopeCurve">
-    <rdfs:label>hasEnvelopeCurve</rdfs:label>
+    <rdfs:label>包含包络线</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#EnvelopeCurve"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#derivedFrom">
-    <rdfs:label>derivedFrom</rdfs:label>
+    <rdfs:label>派生自</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessData"/>
     <rdfs:range rdf:resource="#ProcessData"/>
   </owl:ObjectProperty>
   <owl:DatatypeProperty rdf:about="#recordId">
-    <rdfs:label>recordId</rdfs:label>
+    <rdfs:label>记录ID</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#sourceTable">
-    <rdfs:label>sourceTable</rdfs:label>
+    <rdfs:label>来源表</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#timestamp">
-    <rdfs:label>timestamp</rdfs:label>
+    <rdfs:label>时间戳</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="xsd:dateTime"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#parameterValue">
-    <rdfs:label>parameterValue</rdfs:label>
+    <rdfs:label>参数值</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessData"/>
     <rdfs:range rdf:resource="xsd:decimal"/>
   </owl:DatatypeProperty>

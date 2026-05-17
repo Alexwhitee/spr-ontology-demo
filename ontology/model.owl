@@ -8,96 +8,96 @@
   </owl:Ontology>
   <owl:Class rdf:about="#DetectionModel">
     <rdfs:subClassOf rdf:resource="#Service"/>
-    <rdfs:label>DetectionModel</rdfs:label>
-    <rdfs:comment>AI or rule model used by inspection.</rdfs:comment>
+    <rdfs:label>检测模型</rdfs:label>
+    <rdfs:comment>用于检测过程记录的 AI 模型或本体规则模型。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelService">
     <rdfs:subClassOf rdf:resource="#Service"/>
-    <rdfs:label>ModelService</rdfs:label>
-    <rdfs:comment>Callable model service endpoint.</rdfs:comment>
+    <rdfs:label>模型服务</rdfs:label>
+    <rdfs:comment>可被调用的模型服务接口。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelInvocation">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>ModelInvocation</rdfs:label>
-    <rdfs:comment>Concrete model call record.</rdfs:comment>
+    <rdfs:label>模型调用记录</rdfs:label>
+    <rdfs:comment>一次具体模型调用的请求、响应和状态记录。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelInputTemplate">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ModelInputTemplate</rdfs:label>
-    <rdfs:comment>Model input schema.</rdfs:comment>
+    <rdfs:label>模型输入模板</rdfs:label>
+    <rdfs:comment>模型需要接收的字段结构。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelOutputTemplate">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ModelOutputTemplate</rdfs:label>
-    <rdfs:comment>Model output schema.</rdfs:comment>
+    <rdfs:label>模型输出模板</rdfs:label>
+    <rdfs:comment>模型需要返回的结构化结果。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelPredictionResult">
     <rdfs:subClassOf rdf:resource="#InspectionResult"/>
-    <rdfs:label>ModelPredictionResult</rdfs:label>
-    <rdfs:comment>Prediction output from a model.</rdfs:comment>
+    <rdfs:label>模型预测结果</rdfs:label>
+    <rdfs:comment>模型或规则服务输出的预测类别、置信度和证据。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelCallLog">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>ModelCallLog</rdfs:label>
-    <rdfs:comment>Model call log and fallback status.</rdfs:comment>
+    <rdfs:label>模型调用日志</rdfs:label>
+    <rdfs:comment>模型调用过程中的日志和降级状态。</rdfs:comment>
   </owl:Class>
   <owl:ObjectProperty rdf:about="#invokesModel">
-    <rdfs:label>invokesModel</rdfs:label>
+    <rdfs:label>调用检测模型</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#DetectionModel"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#usesInputTemplate">
-    <rdfs:label>usesInputTemplate</rdfs:label>
+    <rdfs:label>使用输入模板</rdfs:label>
     <rdfs:domain rdf:resource="#ModelInvocation"/>
     <rdfs:range rdf:resource="#ModelInputTemplate"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#usesOutputTemplate">
-    <rdfs:label>usesOutputTemplate</rdfs:label>
+    <rdfs:label>使用输出模板</rdfs:label>
     <rdfs:domain rdf:resource="#ModelInvocation"/>
     <rdfs:range rdf:resource="#ModelOutputTemplate"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#producedByModel">
-    <rdfs:label>producedByModel</rdfs:label>
+    <rdfs:label>由模型产生</rdfs:label>
     <rdfs:domain rdf:resource="#ModelPredictionResult"/>
     <rdfs:range rdf:resource="#DetectionModel"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasPredictionResult">
-    <rdfs:label>hasPredictionResult</rdfs:label>
+    <rdfs:label>包含预测结果</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#ModelPredictionResult"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#supportsInspectionResult">
-    <rdfs:label>supportsInspectionResult</rdfs:label>
+    <rdfs:label>支持检测结果</rdfs:label>
     <rdfs:domain rdf:resource="#ModelPredictionResult"/>
     <rdfs:range rdf:resource="#InspectionResult"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasModelCallLog">
-    <rdfs:label>hasModelCallLog</rdfs:label>
+    <rdfs:label>模型调用日志</rdfs:label>
     <rdfs:domain rdf:resource="#ModelInvocation"/>
     <rdfs:range rdf:resource="#ModelCallLog"/>
   </owl:ObjectProperty>
   <owl:DatatypeProperty rdf:about="#predictionCategory">
-    <rdfs:label>predictionCategory</rdfs:label>
+    <rdfs:label>预测类别</rdfs:label>
     <rdfs:domain rdf:resource="#ModelPredictionResult"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#confidence">
-    <rdfs:label>confidence</rdfs:label>
+    <rdfs:label>置信度</rdfs:label>
     <rdfs:domain rdf:resource="#ModelPredictionResult"/>
     <rdfs:range rdf:resource="xsd:decimal"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#modelName">
-    <rdfs:label>modelName</rdfs:label>
+    <rdfs:label>模型名称</rdfs:label>
     <rdfs:domain rdf:resource="#DetectionModel"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#modelVersion">
-    <rdfs:label>modelVersion</rdfs:label>
+    <rdfs:label>模型版本</rdfs:label>
     <rdfs:domain rdf:resource="#DetectionModel"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#apiEndpoint">
-    <rdfs:label>apiEndpoint</rdfs:label>
+    <rdfs:label>API地址</rdfs:label>
     <rdfs:domain rdf:resource="#ModelService"/>
     <rdfs:range rdf:resource="xsd:anyURI"/>
   </owl:DatatypeProperty>

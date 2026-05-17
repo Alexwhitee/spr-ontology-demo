@@ -4,6 +4,7 @@ import { createOntologyDocumentFromDataset, type DemoDataset } from "../shared/o
 import {
   createRemoteWarningReport,
   extractKnowledgeRules,
+  importDatabaseRowsRemote,
   loadKnowledgeRuleCandidates,
   parseOntologyDocument,
   publishKnowledgeRules,
@@ -167,5 +168,35 @@ describe("ontology data client", () => {
       "/api/knowledge/publish-rules"
     ]);
     expect((calls[1].init?.headers as Record<string, string>).authorization).toBe("Bearer secret");
+  });
+
+  it("posts imported database rows to the Worker and receives the refreshed dataset", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({
+        dataset: {
+          ...dataset,
+          records: [...dataset.records, { ...dataset.records[0], id: "riprop-auto-1" }]
+        },
+        importedRecordIds: ["riprop-auto-1"],
+        automationSteps: [{ key: "records", title: "记录导入", detail: "已导入", status: "done" }]
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+
+    const result = await importDatabaseRowsRemote({
+      sourceTable: "rip_rop",
+      rows: [{ "实物编号": "auto-1", "故障代码": "DDC: 铆接曲线高于包络线" }]
+    }, "secret");
+
+    expect(calls[0].url).toBe("/api/dataset/import");
+    expect(calls[0].init?.method).toBe("POST");
+    expect((calls[0].init?.headers as Record<string, string>).authorization).toBe("Bearer secret");
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+      sourceTable: "rip_rop",
+      rows: [{ "实物编号": "auto-1", "故障代码": "DDC: 铆接曲线高于包络线" }]
+    });
+    expect(result.importedRecordIds).toEqual(["riprop-auto-1"]);
+    expect(result.dataset.records.some((record) => record.id === "riprop-auto-1")).toBe(true);
   });
 });

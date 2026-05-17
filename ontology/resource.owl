@@ -8,106 +8,106 @@
   </owl:Ontology>
   <owl:Class rdf:about="#ProductionLine">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>ProductionLine</rdfs:label>
-    <rdfs:comment>Production line or manufacturing area.</rdfs:comment>
+    <rdfs:label>产线</rdfs:label>
+    <rdfs:comment>工艺发生的生产线或生产区域。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Workstation">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Workstation</rdfs:label>
-    <rdfs:comment>Station inside a production line.</rdfs:comment>
+    <rdfs:label>工位</rdfs:label>
+    <rdfs:comment>产线内执行具体工艺任务的位置。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Equipment">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Equipment</rdfs:label>
-    <rdfs:comment>Equipment used to execute the process.</rdfs:comment>
+    <rdfs:label>设备</rdfs:label>
+    <rdfs:comment>执行工艺过程的设备。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#MainEquipment">
     <rdfs:subClassOf rdf:resource="#Equipment"/>
-    <rdfs:label>MainEquipment</rdfs:label>
-    <rdfs:comment>Main process equipment.</rdfs:comment>
+    <rdfs:label>主设备</rdfs:label>
+    <rdfs:comment>承担主要加工或连接任务的设备。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Robot">
     <rdfs:subClassOf rdf:resource="#Equipment"/>
-    <rdfs:label>Robot</rdfs:label>
-    <rdfs:comment>Industrial robot.</rdfs:comment>
+    <rdfs:label>机器人</rdfs:label>
+    <rdfs:comment>参与工艺执行的工业机器人。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Tooling">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Tooling</rdfs:label>
-    <rdfs:comment>Fixture, die, or tool.</rdfs:comment>
+    <rdfs:label>工装夹具</rdfs:label>
+    <rdfs:comment>夹具、模具或辅助工具。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Sensor">
     <rdfs:subClassOf rdf:resource="#Equipment"/>
-    <rdfs:label>Sensor</rdfs:label>
-    <rdfs:comment>Sensor used for process monitoring.</rdfs:comment>
+    <rdfs:label>传感器</rdfs:label>
+    <rdfs:comment>采集过程状态或质量信号的传感器。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#DigitalResource">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>DigitalResource</rdfs:label>
-    <rdfs:comment>Digital program, recipe, model, or interface.</rdfs:comment>
+    <rdfs:label>数字资源</rdfs:label>
+    <rdfs:comment>程序、配方、模型或接口等数字对象。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Program">
     <rdfs:subClassOf rdf:resource="#DigitalResource"/>
-    <rdfs:label>Program</rdfs:label>
-    <rdfs:comment>Process program.</rdfs:comment>
+    <rdfs:label>程序</rdfs:label>
+    <rdfs:comment>设备执行的工艺程序或程序号。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Person">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Person</rdfs:label>
-    <rdfs:comment>Human or account subject.</rdfs:comment>
+    <rdfs:label>人员</rdfs:label>
+    <rdfs:comment>参与复核、操作或管理的人或账号。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Role">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Role</rdfs:label>
-    <rdfs:comment>Engineering, quality, or operation role.</rdfs:comment>
+    <rdfs:label>角色</rdfs:label>
+    <rdfs:comment>工程、质量、运维等职责角色。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Qualification">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Qualification</rdfs:label>
-    <rdfs:comment>Qualification or authorization.</rdfs:comment>
+    <rdfs:label>资质</rdfs:label>
+    <rdfs:comment>人员或设备的授权与资质信息。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#Responsibility">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>Responsibility</rdfs:label>
-    <rdfs:comment>Responsibility definition.</rdfs:comment>
+    <rdfs:label>职责</rdfs:label>
+    <rdfs:comment>角色需要承担的责任边界。</rdfs:comment>
   </owl:Class>
   <owl:ObjectProperty rdf:about="#containsWorkstation">
-    <rdfs:label>containsWorkstation</rdfs:label>
+    <rdfs:label>包含工位</rdfs:label>
     <rdfs:domain rdf:resource="#ProductionLine"/>
     <rdfs:range rdf:resource="#Workstation"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#configuredWith">
-    <rdfs:label>configuredWith</rdfs:label>
+    <rdfs:label>配置设备</rdfs:label>
     <rdfs:domain rdf:resource="#Workstation"/>
     <rdfs:range rdf:resource="#Equipment"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#runsProgram">
-    <rdfs:label>runsProgram</rdfs:label>
+    <rdfs:label>运行程序</rdfs:label>
     <rdfs:domain rdf:resource="#Equipment"/>
     <rdfs:range rdf:resource="#Program"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#usesEquipment">
-    <rdfs:label>usesEquipment</rdfs:label>
+    <rdfs:label>使用设备</rdfs:label>
     <rdfs:domain rdf:resource="#ProcessStep"/>
     <rdfs:range rdf:resource="#Equipment"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#performedBy">
-    <rdfs:label>performedBy</rdfs:label>
+    <rdfs:label>执行人员</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#Person"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasRole">
-    <rdfs:label>hasRole</rdfs:label>
+    <rdfs:label>拥有角色</rdfs:label>
     <rdfs:domain rdf:resource="#Person"/>
     <rdfs:range rdf:resource="#Role"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasQualification">
-    <rdfs:label>hasQualification</rdfs:label>
+    <rdfs:label>拥有资质</rdfs:label>
     <rdfs:domain rdf:resource="#Person"/>
     <rdfs:range rdf:resource="#Qualification"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasResponsibility">
-    <rdfs:label>hasResponsibility</rdfs:label>
+    <rdfs:label>拥有职责</rdfs:label>
     <rdfs:domain rdf:resource="#Role"/>
     <rdfs:range rdf:resource="#Responsibility"/>
   </owl:ObjectProperty>

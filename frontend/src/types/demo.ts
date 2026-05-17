@@ -1,5 +1,8 @@
 export type {
   CurveSummary,
+  DatabaseImportAutomationStep,
+  DatabaseImportRequest,
+  DatabaseImportResult,
   DemoDataset,
   DemoScriptStep,
   FieldMapping,

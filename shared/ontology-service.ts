@@ -20,6 +20,7 @@ export type OntologyPropertyDescriptor = {
   range: string;
   type: "object" | "data";
   module: OntologyModuleName;
+  description: string;
 };
 
 export type QualityRuleDescriptor = {
@@ -139,6 +140,137 @@ export type RuleExtractionResponse = {
   sourceDocument: string;
   extractedAt: string;
   candidates: RuleExtractionCandidate[];
+};
+
+const classZh: Record<string, { label: string; description: string }> = {
+  Entity: { label: "实体", description: "本体中所有可管理对象的基础父类。" },
+  VersionedEntity: { label: "版本化实体", description: "带版本号、生命周期和变更记录的对象。" },
+  TraceableEntity: { label: "可追溯实体", description: "可以追踪来源、时间和证据链的对象。" },
+  Document: { label: "文档", description: "标准、SOP、报告、数据库记录说明等文档对象。" },
+  ExpertDocument: { label: "专家文档", description: "用于抽取质量规则和复核知识的专家经验文档。" },
+  Rule: { label: "规则", description: "可复用的判定、约束或推理规则。" },
+  Event: { label: "事件", description: "业务、工艺或质量过程中发生的状态变化。" },
+  Action: { label: "动作", description: "系统或人员可以执行的处理动作。" },
+  Service: { label: "服务", description: "可调用的模型、接口或系统能力。" },
+  Report: { label: "报告", description: "由检测、分析或复核流程生成的结论文档。" },
+  ManufacturingProcess: { label: "制造工艺", description: "工艺过程的顶层抽象。" },
+  ProcessRoute: { label: "工艺路线", description: "由多个工序和步骤组成的工艺路线。" },
+  ProcessOperation: { label: "工序", description: "工艺路线中的一个操作阶段。" },
+  ProcessStep: { label: "工艺步骤", description: "可以执行、配置参数并产生数据的最小步骤。" },
+  ParameterSet: { label: "参数集", description: "力、行程、阈值等工艺参数的集合。" },
+  ProcessWindow: { label: "工艺窗口", description: "用于判断过程是否合格的边界、阈值或参考窗口。" },
+  OnlineProcessRecord: { label: "在线过程记录", description: "从设备或数据库采集到的一条在线过程数据。" },
+  ProcessData: { label: "过程数据", description: "工艺执行过程中产生的数据对象。" },
+  CurveData: { label: "曲线数据", description: "由一串采样点组成的过程曲线。" },
+  ReferenceCurve: { label: "参考曲线", description: "用于评价实际曲线的基准曲线。" },
+  EnvelopeCurve: { label: "包络线", description: "用于判断实际曲线是否越界的参考边界。" },
+  DataProcessingProcess: { label: "数据处理流程", description: "从原始数据到特征、结果和报告的处理流水线。" },
+  ProductionLine: { label: "产线", description: "工艺发生的生产线或生产区域。" },
+  Workstation: { label: "工位", description: "产线内执行具体工艺任务的位置。" },
+  Equipment: { label: "设备", description: "执行工艺过程的设备。" },
+  MainEquipment: { label: "主设备", description: "承担主要加工或连接任务的设备。" },
+  Robot: { label: "机器人", description: "参与工艺执行的工业机器人。" },
+  Tooling: { label: "工装夹具", description: "夹具、模具或辅助工具。" },
+  Sensor: { label: "传感器", description: "采集过程状态或质量信号的传感器。" },
+  DigitalResource: { label: "数字资源", description: "程序、配方、模型或接口等数字对象。" },
+  Program: { label: "程序", description: "设备执行的工艺程序或程序号。" },
+  Person: { label: "人员", description: "参与复核、操作或管理的人或账号。" },
+  Role: { label: "角色", description: "工程、质量、运维等职责角色。" },
+  Qualification: { label: "资质", description: "人员或设备的授权与资质信息。" },
+  Responsibility: { label: "职责", description: "角色需要承担的责任边界。" },
+  QualityStandard: { label: "质量标准", description: "检测与判定使用的质量标准。" },
+  QualityCharacteristic: { label: "质量特性", description: "被检测或评价的质量特征。" },
+  InspectionPlan: { label: "检测计划", description: "定义检测范围、频次和要求的计划。" },
+  InspectionMethod: { label: "检测方法", description: "超声、视觉、曲线判定等具体检测方法。" },
+  InspectionProcess: { label: "检测流程", description: "执行质量检测并产出结果的流程。" },
+  InspectionResult: { label: "检测结果", description: "记录检测结论、故障线索和质量证据。" },
+  QualityStatus: { label: "质量状态", description: "合格、待复核、失败等质量状态。" },
+  DefectPattern: { label: "缺陷模式", description: "系统识别出的缺陷或异常类型。" },
+  AnomalyEvent: { label: "异常事件", description: "由异常质量证据生成的事件，用来连接检测结果、缺陷、根因和预警报告。" },
+  RootCause: { label: "根因", description: "缺陷或异常背后的候选原因或确认原因。" },
+  CorrectiveAction: { label: "纠正动作", description: "针对当前问题采取的纠正措施。" },
+  PreventiveAction: { label: "预防动作", description: "用于降低问题再次发生概率的预防措施。" },
+  DiagnosticEvidence: { label: "诊断证据", description: "根因分析使用的字段、曲线、模型结果或人工证据。" },
+  QualityRule: { label: "质量规则", description: "用于质量判定和诊断的规则。" },
+  WarningReport: { label: "预警报告", description: "由本体驱动流程生成的质量预警报告。" },
+  DetectionModel: { label: "检测模型", description: "用于检测过程记录的 AI 模型或本体规则模型。" },
+  ModelService: { label: "模型服务", description: "可被调用的模型服务接口。" },
+  ModelInvocation: { label: "模型调用记录", description: "一次具体模型调用的请求、响应和状态记录。" },
+  ModelInputTemplate: { label: "模型输入模板", description: "模型需要接收的字段结构。" },
+  ModelOutputTemplate: { label: "模型输出模板", description: "模型需要返回的结构化结果。" },
+  ModelPredictionResult: { label: "模型预测结果", description: "模型或规则服务输出的预测类别、置信度和证据。" },
+  ModelCallLog: { label: "模型调用日志", description: "模型调用过程中的日志和降级状态。" },
+  SPRProcess: { label: "SPR工艺", description: "SPR 自冲铆工艺扩展。" },
+  SPRProcessRecord: { label: "SPR过程记录", description: "每一条 SPR 数据库记录的统一承载入口。" },
+  SPRConnectionPoint: { label: "SPR连接点", description: "SPR 铆点或连接特征。" },
+  SPRRivet: { label: "SPR铆钉", description: "SPR 工艺使用的铆钉对象。" },
+  SPRDie: { label: "SPR铆模", description: "SPR 工艺中的铆模或模具。" },
+  SPRProgram: { label: "SPR程序", description: "SPR 设备执行的工艺程序。" },
+  SPRParameterSet: { label: "SPR参数集", description: "SPR 工艺参数集合。" },
+  SPRCurveData: { label: "SPR曲线数据", description: "SPR 过程中的实际曲线和派生曲线。" },
+  SPREnvelopeCurve: { label: "SPR包络线", description: "SPR 曲线判断使用的包络线。" },
+  SPRInspectionProcess: { label: "SPR检测流程", description: "读取 SPR 过程记录、调用模型或规则并生成检测结果的流程。" },
+  SPRInspectionResult: { label: "SPR检测结果", description: "SPR 检测流程输出的质量结果。" },
+  SPRDefectPattern: { label: "SPR缺陷模式", description: "SPR 场景中的缺陷或异常类型。" },
+  SPRRootCause: { label: "SPR根因", description: "SPR 缺陷对应的候选根因。" }
+};
+
+const propertyZh: Record<string, { label: string; description: string }> = {
+  hasSourceDocument: { label: "来源文档", description: "表示一个对象来自哪份文档或记录。" },
+  hasVersion: { label: "版本号", description: "记录对象的版本信息。" },
+  triggeredBy: { label: "由事件触发", description: "表示动作由某个事件触发。" },
+  generatesReport: { label: "生成报告", description: "表示动作会生成报告。" },
+  hasRule: { label: "拥有规则", description: "表示对象关联了可执行或可解释的规则。" },
+  hasOperation: { label: "包含工序", description: "工艺路线包含具体工序。" },
+  hasStep: { label: "包含步骤", description: "工序包含可执行步骤。" },
+  usesParameterSet: { label: "使用参数集", description: "工艺步骤使用一组参数。" },
+  hasProcessWindow: { label: "拥有工艺窗口", description: "工艺步骤关联判断边界或阈值。" },
+  hasProcessData: { label: "包含过程数据", description: "在线过程记录包含过程数据对象。" },
+  hasCurveData: { label: "包含曲线数据", description: "在线过程记录包含实际曲线或参考曲线。" },
+  hasReferenceCurve: { label: "包含参考曲线", description: "检测流程使用参考曲线。" },
+  hasEnvelopeCurve: { label: "包含包络线", description: "检测流程使用包络线作为判定边界。" },
+  derivedFrom: { label: "派生自", description: "一个数据对象由另一个数据对象加工得到。" },
+  containsWorkstation: { label: "包含工位", description: "产线包含一个或多个工位。" },
+  configuredWith: { label: "配置设备", description: "工位配置了执行设备。" },
+  runsProgram: { label: "运行程序", description: "设备运行某个工艺程序。" },
+  usesEquipment: { label: "使用设备", description: "工艺步骤需要使用设备。" },
+  performedBy: { label: "执行人员", description: "检测流程由人员或账号执行。" },
+  hasRole: { label: "拥有角色", description: "人员拥有某种角色。" },
+  hasQualification: { label: "拥有资质", description: "人员拥有相关资质。" },
+  hasResponsibility: { label: "拥有职责", description: "角色关联职责定义。" },
+  hasQualityStandard: { label: "质量标准", description: "检测计划引用质量标准。" },
+  hasQualityCharacteristic: { label: "质量特性", description: "检测计划关注的质量特征。" },
+  hasInspectionPlan: { label: "检测计划", description: "制造工艺关联检测计划。" },
+  hasInspectionProcess: { label: "检测流程", description: "在线过程记录进入一个检测流程。" },
+  producesInspectionResult: { label: "产生检测结果", description: "检测流程输出检测结果。" },
+  detectsDefectPattern: { label: "识别缺陷模式", description: "检测结果或规则识别出缺陷模式。" },
+  hasAnomalyEvent: { label: "产生异常事件", description: "检测结果在异常时产生异常事件。" },
+  hasRootCauseCandidate: { label: "候选根因", description: "异常事件关联候选根因。" },
+  supportedByEvidence: { label: "由证据支持", description: "根因由诊断证据支持。" },
+  correctedBy: { label: "纠正动作", description: "根因可以被纠正动作处理。" },
+  preventedBy: { label: "预防动作", description: "根因可以通过预防动作降低复发概率。" },
+  generatesWarningReport: { label: "生成预警报告", description: "异常事件生成可复核的预警报告。" },
+  invokesModel: { label: "调用检测模型", description: "检测流程调用 AI 模型或规则模型。" },
+  usesInputTemplate: { label: "使用输入模板", description: "模型调用使用输入字段模板。" },
+  usesOutputTemplate: { label: "使用输出模板", description: "模型调用使用输出结构模板。" },
+  producedByModel: { label: "由模型产生", description: "预测结果由检测模型产生。" },
+  hasPredictionResult: { label: "包含预测结果", description: "检测流程包含模型预测结果。" },
+  supportsInspectionResult: { label: "支持检测结果", description: "模型预测结果支撑检测结果。" },
+  hasModelCallLog: { label: "模型调用日志", description: "模型调用记录关联调用日志。" },
+  recordId: { label: "记录ID", description: "数据库过程记录的唯一标识。" },
+  sourceTable: { label: "来源表", description: "记录来自哪张数据库表。" },
+  timestamp: { label: "时间戳", description: "记录采集或发生时间。" },
+  parameterValue: { label: "参数值", description: "过程参数的数值。" },
+  unit: { label: "单位", description: "质量特性或参数的计量单位。" },
+  faultCode: { label: "故障代码", description: "原始质量故障文案或编码。" },
+  predictionCategory: { label: "预测类别", description: "模型输出的预测分类。" },
+  confidence: { label: "置信度", description: "模型或规则对判断的可信程度。" },
+  severity: { label: "严重等级", description: "异常事件的严重程度。" },
+  modelName: { label: "模型名称", description: "检测模型的名称。" },
+  modelVersion: { label: "模型版本", description: "检测模型的版本号。" },
+  apiEndpoint: { label: "API地址", description: "模型服务的调用地址。" },
+  evidenceText: { label: "证据文本", description: "诊断证据的文字说明。" },
+  reportSummary: { label: "报告摘要", description: "预警报告的摘要内容。" }
 };
 
 const ontologyClasses: OntologyClassDescriptor[] = [
@@ -710,16 +842,16 @@ export function buildOntologyWorkbenchGraph(_dataset?: DemoDataset): { nodes: Gr
     }))
   ];
   const edges: GraphEdge[] = [
-    edge("workbench-record-inspection", "SPRProcessRecord", "SPRInspectionProcess", "hasInspectionProcess", "objectProperty"),
-    edge("workbench-inspection-model", "SPRInspectionProcess", "DetectionModel", "invokesModel", "objectProperty"),
-    edge("workbench-inspection-prediction", "SPRInspectionProcess", "ModelPredictionResult", "hasPredictionResult", "objectProperty"),
-    edge("workbench-prediction-result", "ModelPredictionResult", "InspectionResult", "supportsInspectionResult", "objectProperty"),
-    edge("workbench-result-anomaly", "InspectionResult", "AnomalyEvent", "hasAnomalyEvent", "objectProperty"),
-    edge("workbench-anomaly-defect", "AnomalyEvent", "DefectPattern", "detectsDefectPattern", "objectProperty"),
-    edge("workbench-anomaly-root", "AnomalyEvent", "RootCause", "hasRootCauseCandidate", "objectProperty"),
-    edge("workbench-anomaly-report", "AnomalyEvent", "WarningReport", "generatesWarningReport", "objectProperty"),
-    ...rules.map((rule) => edge(`rule-${rule.id}-inspection`, rule.id, "SPRInspectionProcess", "appliesTo", "mapsTo")),
-    ...rules.map((rule) => edge(`rule-${rule.id}-defect`, rule.id, "DefectPattern", "detectsDefectPattern", "objectProperty"))
+    edge("workbench-record-inspection", "SPRProcessRecord", "SPRInspectionProcess", relationLabel("hasInspectionProcess"), "objectProperty"),
+    edge("workbench-inspection-model", "SPRInspectionProcess", "DetectionModel", relationLabel("invokesModel"), "objectProperty"),
+    edge("workbench-inspection-prediction", "SPRInspectionProcess", "ModelPredictionResult", relationLabel("hasPredictionResult"), "objectProperty"),
+    edge("workbench-prediction-result", "ModelPredictionResult", "InspectionResult", relationLabel("supportsInspectionResult"), "objectProperty"),
+    edge("workbench-result-anomaly", "InspectionResult", "AnomalyEvent", relationLabel("hasAnomalyEvent"), "objectProperty"),
+    edge("workbench-anomaly-defect", "AnomalyEvent", "DefectPattern", relationLabel("detectsDefectPattern"), "objectProperty"),
+    edge("workbench-anomaly-root", "AnomalyEvent", "RootCause", relationLabel("hasRootCauseCandidate"), "objectProperty"),
+    edge("workbench-anomaly-report", "AnomalyEvent", "WarningReport", relationLabel("generatesWarningReport"), "objectProperty"),
+    ...rules.map((rule) => edge(`rule-${rule.id}-inspection`, rule.id, "SPRInspectionProcess", "适用于", "mapsTo")),
+    ...rules.map((rule) => edge(`rule-${rule.id}-defect`, rule.id, "DefectPattern", relationLabel("detectsDefectPattern"), "objectProperty"))
   ];
 
   return { nodes, edges };
@@ -904,19 +1036,26 @@ function slugify(value: string): string {
 }
 
 function cls(id: string, label: string, module: OntologyModuleName, parent: string | undefined, description: string): OntologyClassDescriptor {
-  return { id, label, module, parent, description };
+  const zh = classZh[id];
+  return { id, label: zh?.label ?? label, module, parent, description: zh?.description ?? description };
 }
 
 function objectProp(id: string, label: string, domain: string, range: string, module: OntologyModuleName): OntologyPropertyDescriptor {
-  return { id, label, domain, range, type: "object", module };
+  const zh = propertyZh[id];
+  return { id, label: zh?.label ?? label, domain, range, type: "object", module, description: zh?.description ?? `${label} 对象属性。` };
 }
 
 function dataProp(id: string, label: string, domain: string, range: string, module: OntologyModuleName): OntologyPropertyDescriptor {
-  return { id, label, domain, range, type: "data", module };
+  const zh = propertyZh[id];
+  return { id, label: zh?.label ?? label, domain, range, type: "data", module, description: zh?.description ?? `${label} 数据属性。` };
 }
 
 function edge(id: string, source: string, target: string, label: string, type: GraphEdge["type"]): GraphEdge {
   return { id, source, target, label, type };
+}
+
+function relationLabel(propertyId: string): string {
+  return propertyZh[propertyId]?.label ?? propertyId;
 }
 
 function findRecord(dataset: DemoDataset, recordId: string): ProcessRecord {

@@ -82,12 +82,55 @@ describe("ontology Worker real API endpoints", () => {
     expect(body.candidates[0].sourceExcerpt).toContain("铆接曲线");
     expect(body.candidates[0].recommendedActions.length).toBeGreaterThan(0);
   });
+
+  it("imports database rows and immediately serves refreshed dataset and detection results", async () => {
+    stubDatasetFetch();
+    const env = createApiEnv();
+
+    const imported = await worker.fetch(authorizedJsonRequest("https://unit.test/api/dataset/import", {
+      sourceTable: "rip_rop",
+      rows: [{
+        "实物编号": "auto-e2e-1",
+        Devicename: "RIVETER-E2E",
+        "程序": "NietProg.E2E",
+        "铆钉计数器": "E2E-1",
+        "日期/时间": "2026/5/17 13:00:00",
+        "故障代码": "DDC: 铆接曲线低于包络线",
+        "铆接曲线": "1,2,3",
+        "包络线": "5,6,7"
+      }]
+    }), env);
+
+    expect(imported.status).toBe(200);
+    const importedBody = await imported.json() as { importedRecordIds: string[]; dataset: DemoDataset; automationSteps: Array<{ status: string }> };
+    expect(importedBody.importedRecordIds).toEqual(["riprop-auto-e2e-1"]);
+    expect(importedBody.automationSteps.every((step) => step.status === "done")).toBe(true);
+    expect(importedBody.dataset.records.some((record) => record.id === "riprop-auto-e2e-1")).toBe(true);
+
+    const refreshedDataset = await worker.fetch(new Request("https://unit.test/api/dataset"), env);
+    expect(((await refreshedDataset.json()) as DemoDataset).records.some((record) => record.id === "riprop-auto-e2e-1")).toBe(true);
+
+    const detection = await worker.fetch(jsonRequest("https://unit.test/api/detect/run", {
+      recordId: "riprop-auto-e2e-1",
+      modelMode: "mock",
+      includeCurveSummary: true
+    }), env);
+    expect(((await detection.json()) as { prediction: { category: string } }).prediction.category).toBe("curve_below_envelope");
+  });
 });
 
 function jsonRequest(url: string, body: unknown): Request {
   return new Request(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
+function authorizedJsonRequest(url: string, body: unknown, method = "POST"): Request {
+  return new Request(url, {
+    method,
+    headers: { authorization: "Bearer secret", "content-type": "application/json" },
     body: JSON.stringify(body)
   });
 }
@@ -102,6 +145,7 @@ function stubDatasetFetch() {
 function createApiEnv() {
   return {
     ALLOWED_ORIGIN: "*",
+    ADMIN_TOKEN: "secret",
     DATASET_URL: "https://unit.test/data/demo-dataset.json"
   };
 }

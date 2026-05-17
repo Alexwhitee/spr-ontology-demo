@@ -8,161 +8,161 @@
   </owl:Ontology>
   <owl:Class rdf:about="#QualityStandard">
     <rdfs:subClassOf rdf:resource="#Document"/>
-    <rdfs:label>QualityStandard</rdfs:label>
-    <rdfs:comment>Quality standard used by inspection.</rdfs:comment>
+    <rdfs:label>质量标准</rdfs:label>
+    <rdfs:comment>检测与判定使用的质量标准。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#QualityCharacteristic">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>QualityCharacteristic</rdfs:label>
-    <rdfs:comment>Quality feature or evaluation characteristic.</rdfs:comment>
+    <rdfs:label>质量特性</rdfs:label>
+    <rdfs:comment>被检测或评价的质量特征。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#InspectionPlan">
     <rdfs:subClassOf rdf:resource="#VersionedEntity"/>
-    <rdfs:label>InspectionPlan</rdfs:label>
-    <rdfs:comment>Plan defining inspection scope and frequency.</rdfs:comment>
+    <rdfs:label>检测计划</rdfs:label>
+    <rdfs:comment>定义检测范围、频次和要求的计划。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#InspectionMethod">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>InspectionMethod</rdfs:label>
-    <rdfs:comment>Inspection method such as UT, vision, or curve judgment.</rdfs:comment>
+    <rdfs:label>检测方法</rdfs:label>
+    <rdfs:comment>超声、视觉、曲线判定等具体检测方法。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#InspectionProcess">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>InspectionProcess</rdfs:label>
-    <rdfs:comment>Executable inspection process.</rdfs:comment>
+    <rdfs:label>检测流程</rdfs:label>
+    <rdfs:comment>执行质量检测并产出结果的流程。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#InspectionResult">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>InspectionResult</rdfs:label>
-    <rdfs:comment>Inspection result and quality conclusion evidence.</rdfs:comment>
+    <rdfs:label>检测结果</rdfs:label>
+    <rdfs:comment>记录检测结论、故障线索和质量证据。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#QualityStatus">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>QualityStatus</rdfs:label>
-    <rdfs:comment>Status such as pass, review, or fail.</rdfs:comment>
+    <rdfs:label>质量状态</rdfs:label>
+    <rdfs:comment>合格、待复核、失败等质量状态。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#DefectPattern">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>DefectPattern</rdfs:label>
-    <rdfs:comment>Identified defect or anomaly pattern.</rdfs:comment>
+    <rdfs:label>缺陷模式</rdfs:label>
+    <rdfs:comment>系统识别出的缺陷或异常类型。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#AnomalyEvent">
     <rdfs:subClassOf rdf:resource="#Event"/>
-    <rdfs:label>AnomalyEvent</rdfs:label>
-    <rdfs:comment>Event generated from abnormal quality evidence.</rdfs:comment>
+    <rdfs:label>异常事件</rdfs:label>
+    <rdfs:comment>由异常质量证据生成的事件，用来连接检测结果、缺陷、根因和预警报告。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#RootCause">
     <rdfs:subClassOf rdf:resource="#Entity"/>
-    <rdfs:label>RootCause</rdfs:label>
-    <rdfs:comment>Candidate or confirmed cause for a defect.</rdfs:comment>
+    <rdfs:label>根因</rdfs:label>
+    <rdfs:comment>缺陷或异常背后的候选原因或确认原因。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#CorrectiveAction">
     <rdfs:subClassOf rdf:resource="#Action"/>
-    <rdfs:label>CorrectiveAction</rdfs:label>
-    <rdfs:comment>Corrective action for current issue.</rdfs:comment>
+    <rdfs:label>纠正动作</rdfs:label>
+    <rdfs:comment>针对当前问题采取的纠正措施。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#PreventiveAction">
     <rdfs:subClassOf rdf:resource="#Action"/>
-    <rdfs:label>PreventiveAction</rdfs:label>
-    <rdfs:comment>Preventive action to reduce recurrence.</rdfs:comment>
+    <rdfs:label>预防动作</rdfs:label>
+    <rdfs:comment>用于降低问题再次发生概率的预防措施。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#DiagnosticEvidence">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
-    <rdfs:label>DiagnosticEvidence</rdfs:label>
-    <rdfs:comment>Evidence used by root-cause analysis.</rdfs:comment>
+    <rdfs:label>诊断证据</rdfs:label>
+    <rdfs:comment>根因分析使用的字段、曲线、模型结果或人工证据。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#QualityRule">
     <rdfs:subClassOf rdf:resource="#Rule"/>
-    <rdfs:label>QualityRule</rdfs:label>
-    <rdfs:comment>Quality judgment and diagnosis rule.</rdfs:comment>
+    <rdfs:label>质量规则</rdfs:label>
+    <rdfs:comment>用于质量判定和诊断的规则。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#WarningReport">
     <rdfs:subClassOf rdf:resource="#Report"/>
-    <rdfs:label>WarningReport</rdfs:label>
-    <rdfs:comment>Ontology-driven warning report.</rdfs:comment>
+    <rdfs:label>预警报告</rdfs:label>
+    <rdfs:comment>由本体驱动流程生成的质量预警报告。</rdfs:comment>
   </owl:Class>
   <owl:ObjectProperty rdf:about="#hasQualityStandard">
-    <rdfs:label>hasQualityStandard</rdfs:label>
+    <rdfs:label>质量标准</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionPlan"/>
     <rdfs:range rdf:resource="#QualityStandard"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasQualityCharacteristic">
-    <rdfs:label>hasQualityCharacteristic</rdfs:label>
+    <rdfs:label>质量特性</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionPlan"/>
     <rdfs:range rdf:resource="#QualityCharacteristic"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasInspectionPlan">
-    <rdfs:label>hasInspectionPlan</rdfs:label>
+    <rdfs:label>检测计划</rdfs:label>
     <rdfs:domain rdf:resource="#ManufacturingProcess"/>
     <rdfs:range rdf:resource="#InspectionPlan"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasInspectionProcess">
-    <rdfs:label>hasInspectionProcess</rdfs:label>
+    <rdfs:label>检测流程</rdfs:label>
     <rdfs:domain rdf:resource="#OnlineProcessRecord"/>
     <rdfs:range rdf:resource="#InspectionProcess"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#producesInspectionResult">
-    <rdfs:label>producesInspectionResult</rdfs:label>
+    <rdfs:label>产生检测结果</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionProcess"/>
     <rdfs:range rdf:resource="#InspectionResult"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#detectsDefectPattern">
-    <rdfs:label>detectsDefectPattern</rdfs:label>
+    <rdfs:label>识别缺陷模式</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionResult"/>
     <rdfs:range rdf:resource="#DefectPattern"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasAnomalyEvent">
-    <rdfs:label>hasAnomalyEvent</rdfs:label>
+    <rdfs:label>产生异常事件</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionResult"/>
     <rdfs:range rdf:resource="#AnomalyEvent"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#hasRootCauseCandidate">
-    <rdfs:label>hasRootCauseCandidate</rdfs:label>
+    <rdfs:label>候选根因</rdfs:label>
     <rdfs:domain rdf:resource="#AnomalyEvent"/>
     <rdfs:range rdf:resource="#RootCause"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#supportedByEvidence">
-    <rdfs:label>supportedByEvidence</rdfs:label>
+    <rdfs:label>由证据支持</rdfs:label>
     <rdfs:domain rdf:resource="#RootCause"/>
     <rdfs:range rdf:resource="#DiagnosticEvidence"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#correctedBy">
-    <rdfs:label>correctedBy</rdfs:label>
+    <rdfs:label>纠正动作</rdfs:label>
     <rdfs:domain rdf:resource="#RootCause"/>
     <rdfs:range rdf:resource="#CorrectiveAction"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#preventedBy">
-    <rdfs:label>preventedBy</rdfs:label>
+    <rdfs:label>预防动作</rdfs:label>
     <rdfs:domain rdf:resource="#RootCause"/>
     <rdfs:range rdf:resource="#PreventiveAction"/>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#generatesWarningReport">
-    <rdfs:label>generatesWarningReport</rdfs:label>
+    <rdfs:label>生成预警报告</rdfs:label>
     <rdfs:domain rdf:resource="#AnomalyEvent"/>
     <rdfs:range rdf:resource="#WarningReport"/>
   </owl:ObjectProperty>
   <owl:DatatypeProperty rdf:about="#unit">
-    <rdfs:label>unit</rdfs:label>
+    <rdfs:label>单位</rdfs:label>
     <rdfs:domain rdf:resource="#QualityCharacteristic"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#faultCode">
-    <rdfs:label>faultCode</rdfs:label>
+    <rdfs:label>故障代码</rdfs:label>
     <rdfs:domain rdf:resource="#InspectionResult"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#severity">
-    <rdfs:label>severity</rdfs:label>
+    <rdfs:label>严重等级</rdfs:label>
     <rdfs:domain rdf:resource="#AnomalyEvent"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#evidenceText">
-    <rdfs:label>evidenceText</rdfs:label>
+    <rdfs:label>证据文本</rdfs:label>
     <rdfs:domain rdf:resource="#DiagnosticEvidence"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>
   <owl:DatatypeProperty rdf:about="#reportSummary">
-    <rdfs:label>reportSummary</rdfs:label>
+    <rdfs:label>报告摘要</rdfs:label>
     <rdfs:domain rdf:resource="#WarningReport"/>
     <rdfs:range rdf:resource="xsd:string"/>
   </owl:DatatypeProperty>

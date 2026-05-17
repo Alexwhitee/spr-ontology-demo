@@ -8,6 +8,7 @@ import {
   exportTopOntologyOwlXml,
   extractRuleCandidatesWithLlm,
   listOntologyClasses,
+  listOntologyProperties,
   listQualityRules,
   runDetection,
   validateOwlXml,
@@ -73,11 +74,31 @@ describe("OWL2 ontology service core", () => {
     const rules = listQualityRules();
 
     expect(graph.nodes.some((node) => node.id === "SPRInspectionProcess" && node.type === "class")).toBe(true);
+    expect(graph.nodes.find((node) => node.id === "AnomalyEvent")?.label).toBe("异常事件");
+    expect(graph.nodes.find((node) => node.id === "DetectionModel")?.label).toBe("检测模型");
+    expect(graph.edges.find((edge) => edge.id === "workbench-inspection-model")?.label).toBe("调用检测模型");
     expect(graph.nodes.some((node) => node.id === "Rule-Curve-High" && node.type === "rule")).toBe(true);
-    expect(graph.edges.some((edge) => edge.label === "invokesModel")).toBe(true);
+    expect(graph.edges.some((edge) => edge.label === "调用检测模型")).toBe(true);
     expect(graph.nodes.every((node) => !node.label.includes("实例图谱"))).toBe(true);
-    expect(classes.some((item) => item.id === "SPRInspectionProcess" && item.module === "spr.owl")).toBe(true);
+    expect(classes.some((item) => item.id === "SPRInspectionProcess" && item.module === "spr.owl" && item.label === "SPR检测流程")).toBe(true);
     expect(rules.map((rule) => rule.id)).toContain("Rule-Curve-High");
+  });
+
+  it("returns Chinese class and property details for the OWL inspector", () => {
+    const classes = listOntologyClasses(dataset);
+    const properties = listOntologyProperties();
+    const anomalyEvent = classes.find((item) => item.id === "AnomalyEvent");
+    const relatedProperties = properties.filter((property) => property.domain === "AnomalyEvent" || property.range === "AnomalyEvent");
+    const sprInspection = classes.find((item) => item.id === "SPRInspectionProcess");
+    const sprInspectionParentProperties = properties.filter((property) => property.domain === sprInspection?.parent || property.range === sprInspection?.parent);
+
+    expect(anomalyEvent?.label).toBe("异常事件");
+    expect(anomalyEvent?.description).toContain("异常质量证据");
+    expect(relatedProperties.map((property) => property.label)).toEqual(expect.arrayContaining(["产生异常事件", "候选根因", "生成预警报告"]));
+    expect(relatedProperties.every((property) => property.description.length > 0)).toBe(true);
+    expect(relatedProperties.find((property) => property.id === "hasRootCauseCandidate")?.description).toContain("异常事件");
+    expect(sprInspection?.parent).toBe("InspectionProcess");
+    expect(sprInspectionParentProperties.map((property) => property.label)).toEqual(expect.arrayContaining(["调用检测模型", "产生检测结果"]));
   });
 
   it("uses an OpenAI-compatible LLM endpoint when model configuration is provided", async () => {

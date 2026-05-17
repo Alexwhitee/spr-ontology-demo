@@ -38,9 +38,12 @@ import {
 } from "../../../../shared/ontology-service";
 import {
   buildDetectionFlowSteps,
+  buildDetectionTraceExplanations,
   buildDetectionTraceSteps,
   buildRecordInputSummary,
   buildRecordOptionLabel,
+  buildRecordOptionGroups,
+  TRACE_EXPLANATION_LABELS,
   statusText,
   summarizeDetectionOutcome,
   type DetectionApiCallKey,
@@ -62,13 +65,13 @@ const modeItems: Array<{ key: WorkbenchMode; label: string; icon: typeof FileCod
   { key: "knowledge", label: "规则抽取复核", icon: ClipboardCheck }
 ];
 
-export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { dataset: DemoDataset; initialMode?: WorkbenchMode }) {
+export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialRecordId }: { dataset: DemoDataset; initialMode?: WorkbenchMode; initialRecordId?: string }) {
   const [mode, setMode] = useState<WorkbenchMode>(initialMode);
   const [selectedId, setSelectedId] = useState("SPRInspectionProcess");
   const defaultRecordId = useMemo(() => (
     dataset.records.find((record) => record.faultCode?.includes("高于包络线"))?.id ?? dataset.records[0]?.id ?? ""
   ), [dataset.records]);
-  const [recordId, setRecordId] = useState(defaultRecordId);
+  const [recordId, setRecordId] = useState(initialRecordId ?? defaultRecordId);
   const [detection, setDetection] = useState<DetectionResult | null>(null);
   const [rootCause, setRootCause] = useState<RootCauseAnalysis | null>(null);
   const [report, setReport] = useState<WarningReport | null>(null);
@@ -92,23 +95,22 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
   const classes = useMemo(() => listOntologyClasses(dataset), [dataset]);
   const properties = useMemo(() => listOntologyProperties(), []);
   const rules = useMemo(() => listQualityRules(), []);
-  const recordOptions = useMemo(() => {
-    const firstRecords = dataset.records.slice(0, 120);
-    const selectedRecord = dataset.records.find((record) => record.id === recordId);
-    return selectedRecord && !firstRecords.some((record) => record.id === selectedRecord.id)
-      ? [selectedRecord, ...firstRecords]
-      : firstRecords;
-  }, [dataset.records, recordId]);
+  const recordGroups = useMemo(() => buildRecordOptionGroups(dataset.records, recordId), [dataset.records, recordId]);
   const selectedRecord = useMemo(() => dataset.records.find((record) => record.id === recordId), [dataset.records, recordId]);
   const selected = graph.nodes.find((node) => node.id === selectedId) ?? graph.nodes[0];
   const selectedClass = classes.find((item) => item.id === selected?.id);
   const selectedRule = rules.find((item) => item.id === selected?.id);
+  const selectedProperties = getClassProperties(selectedClass, classes, properties);
   const owlUrl = useMemo(() => URL.createObjectURL(new Blob([exportOwlXml(dataset)], { type: "application/rdf+xml" })), [dataset]);
   const topOwlUrl = useMemo(() => URL.createObjectURL(new Blob([exportTopOntologyOwlXml()], { type: "application/rdf+xml" })), []);
 
   useEffect(() => {
     if (!recordId && defaultRecordId) setRecordId(defaultRecordId);
   }, [defaultRecordId, recordId]);
+
+  useEffect(() => {
+    if (initialRecordId && dataset.records.some((record) => record.id === initialRecordId)) setRecordId(initialRecordId);
+  }, [dataset.records, initialRecordId]);
 
   useEffect(() => {
     setDetection(null);
@@ -329,14 +331,33 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
             </button>
           );
         })}
-        <label className="record-picker">
-          <GitBranch size={16} />
-          <select value={recordId} onChange={(event) => setRecordId(event.target.value)}>
-            {recordOptions.map((record) => (
-              <option key={record.id} value={record.id}>{buildRecordOptionLabel(record)}</option>
-            ))}
-          </select>
-        </label>
+        <div className="record-picker-panel">
+          <div className="record-picker-copy">
+            <GitBranch size={16} />
+            <span>
+              <strong>检测记录选择</strong>
+              <em>列表按来源表分组：RIP_ROP 表用于铆接故障与曲线检测，main 主表用于主过程记录和 pre 预测编码复核。</em>
+            </span>
+          </div>
+          <label className="record-picker">
+            <select value={recordId} onChange={(event) => setRecordId(event.target.value)} aria-label="选择要运行检测流程的数据库记录">
+              {recordGroups.map((group) => (
+                <optgroup key={group.source} label={group.label}>
+                  {group.records.map((record) => (
+                    <option key={record.id} value={record.id}>{buildRecordOptionLabel(record)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          {selectedRecord && (
+            <div className="record-picker-summary">
+              <span>{selectedRecord.source === "rip_rop" ? "RIP_ROP 表" : "main 主表"}</span>
+              <span>{selectedRecord.deviceName || "设备未提供"}</span>
+              <span>{selectedRecord.timestamp || "时间未提供"}</span>
+            </div>
+          )}
+        </div>
         <button type="button" className="primary-action" onClick={handleRunDetection} disabled={isDetecting || !recordId}>
           {isDetecting ? <Loader2 size={16} /> : <Activity size={16} />}
           {isDetecting ? "检测中" : "调用检测 API"}
@@ -358,16 +379,29 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure" }: { data
           <h2>{selected?.label}</h2>
           <p>{selectedRule?.triggerCondition ?? selectedClass?.description ?? selected?.description}</p>
           {selectedClass && (
-            <dl className="detail-grid">
-              <dt>模块</dt>
-              <dd>{selectedClass.module}</dd>
-              <dt>父类</dt>
-              <dd>{selectedClass.parent ?? "顶层类"}</dd>
-              <dt>IRI</dt>
-              <dd>#{selectedClass.id}</dd>
-              <dt>属性数</dt>
-              <dd>{properties.filter((property) => property.domain === selectedClass.id || property.range === selectedClass.id).length}</dd>
-            </dl>
+            <>
+              <dl className="detail-grid">
+                <dt>模块</dt>
+                <dd>{selectedClass.module}</dd>
+                <dt>父类</dt>
+                <dd>{classes.find((item) => item.id === selectedClass.parent)?.label ?? selectedClass.parent ?? "顶层类"}</dd>
+                <dt>IRI</dt>
+                <dd>#{selectedClass.id}</dd>
+                <dt>属性数</dt>
+                <dd>{selectedProperties.length}</dd>
+              </dl>
+              <h4>属性明细</h4>
+              <div className="property-detail-list">
+                {selectedProperties.map((property) => (
+                  <div key={property.id}>
+                    <strong>{property.label}</strong>
+                    <span>{property.domain === selectedClass.id ? "作为起点" : property.range === selectedClass.id ? "作为终点" : "继承属性"}：#{property.domain} → #{property.range}</span>
+                    <p>{property.description}</p>
+                  </div>
+                ))}
+                {selectedProperties.length === 0 && <p className="muted">当前类暂未在 OWL2 属性中作为起点或终点出现。</p>}
+              </div>
+            </>
           )}
           {selectedRule && (
             <dl className="detail-grid">
@@ -445,6 +479,7 @@ function StructurePanel({ classes, properties }: { classes: ReturnType<typeof li
           <h3>OWL2 模块覆盖</h3>
           <span>{classes.length} 类</span>
         </div>
+        <p className="principle-copy">工作原理：这里把系统内部的概念拆成多个 OWL2 模块。类表示“是什么”，对象属性表示“谁和谁有关”，数据属性表示“对象身上有哪些字段值”。检测流程会沿这些类和属性把数据库记录、模型结果、异常事件、根因和报告连起来。</p>
         <div className="module-grid">
           {(["core.owl", "process.owl", "resource.owl", "quality.owl", "model.owl", "spr.owl"] as const).map((module) => (
             <div key={module}>
@@ -459,9 +494,10 @@ function StructurePanel({ classes, properties }: { classes: ReturnType<typeof li
           <h3>关键属性</h3>
           <span>{properties.length}</span>
         </div>
+        <p className="principle-copy">工作原理：属性就是本体中的“连接线”。例如“产生异常事件”表示检测结果可以生成异常事件，“候选根因”表示异常事件会继续指向根因候选。</p>
         <div className="relation-list compact">
           {properties.slice(0, 12).map((property) => (
-            <div key={property.id}>{property.domain}{" -> "}<strong>{property.label}</strong>{" -> "}{property.range}</div>
+            <div key={property.id}>#{property.domain}{" -> "}<strong>{property.label}</strong>{" -> "}#{property.range}</div>
           ))}
         </div>
       </section>
@@ -469,9 +505,31 @@ function StructurePanel({ classes, properties }: { classes: ReturnType<typeof li
   );
 }
 
+function getClassProperties(
+  selectedClass: ReturnType<typeof listOntologyClasses>[number] | undefined,
+  classes: ReturnType<typeof listOntologyClasses>,
+  properties: ReturnType<typeof listOntologyProperties>
+) {
+  if (!selectedClass) return [];
+  const classIds = new Set<string>();
+  let current: typeof selectedClass | undefined = selectedClass;
+  while (current) {
+    classIds.add(current.id);
+    current = current.parent ? classes.find((item) => item.id === current?.parent) : undefined;
+  }
+  return properties.filter((property) => classIds.has(property.domain) || classIds.has(property.range));
+}
+
 function RulesPanel({ rules, onSelect }: { rules: ReturnType<typeof listQualityRules>; onSelect: (id: string) => void }) {
   return (
     <div className="semantic-panels">
+      <section className="panel semantic-panel-wide">
+        <div className="section-heading">
+          <h3>质量规则工作原理</h3>
+          <span>{rules.length} 条规则</span>
+        </div>
+        <p className="principle-copy">系统先把数据库字段映射到本体类，再用质量规则检查字段和曲线摘要。每条规则都说明适用工艺、触发条件、异常模式、证据字段、候选根因和建议动作，所以后续检测结果不是黑盒分数，而是可追溯的语义判断。</p>
+      </section>
       {rules.map((rule) => (
         <button key={rule.id} type="button" className="rule-row" onClick={() => onSelect(rule.id)}>
           <span>{rule.id}</span>
@@ -513,6 +571,7 @@ function DetectionPanel({
   const summary = summarizeDetectionOutcome(detection);
   const flowSteps = buildDetectionFlowSteps({ phase, recordId, detection, rootCause, report });
   const traceSteps = buildDetectionTraceSteps({ phase, recordId, record, detection, rootCause, report, calls: apiCalls });
+  const traceExplanations = buildDetectionTraceExplanations(traceSteps);
   const activeTrace = traceSteps.find((step) => step.key === selectedTraceKey) ?? traceSteps[0];
   const inputSummary = buildRecordInputSummary(record);
   const primaryRootCause = rootCause?.candidates[0];
@@ -524,6 +583,11 @@ function DetectionPanel({
           <h3>检测 API 全流程</h3>
           <span>{phase === "idle" ? "待运行" : phase === "complete" ? "已完成" : phase === "error" ? "调用失败" : "运行中"}</span>
         </div>
+          <p className="principle-copy">工作原理：这条流程把“一条数据库记录”依次变成“检测判断”“根因候选”“预警报告”。每一步都会保留输入、接口、输出和本体路径，因此可以从数据库原始字段一直追溯到最终预警动作。</p>
+          <div className="flow-explain-banner">
+            <strong>全流程阅读顺序</strong>
+            <span>先看输入记录来自哪张表，再看检测 API 给出的异常类别，然后看根因 API 如何把异常映射到候选原因，最后看报告 API 如何生成复核动作。</span>
+          </div>
         <div className="detect-brief">
           <div>
             <span>输入</span>
@@ -558,6 +622,7 @@ function DetectionPanel({
           <h3>透明调用台</h3>
           <span>{traceSteps.filter((step) => step.status === "done").length}/{traceSteps.length} 已输出</span>
         </div>
+        <p className="principle-copy">工作原理：透明调用台把每个接口调用拆开显示。左侧是步骤，右侧是该步骤真实发送的 JSON 输入和返回的 JSON 输出，用来证明系统没有只展示最终结论。</p>
         <div className="api-trace-layout">
           <div className="api-trace-list" aria-label="API 调用阶段">
             {traceSteps.map((step, index) => (
@@ -591,10 +656,33 @@ function DetectionPanel({
               {activeTrace.durationMs !== undefined && <span>耗时 {activeTrace.durationMs}ms</span>}
             </div>
             <div className="trace-io-grid">
-              <TraceBlock title="输入内容" value={activeTrace.input} />
-              <TraceBlock title={activeTrace.error ? "错误信息" : "输出结果"} value={activeTrace.error ? { message: activeTrace.error } : activeTrace.output} emptyText="等待该阶段返回输出" />
+              <TraceBlock title="请求数据（JSON）" value={activeTrace.input} />
+              <TraceBlock title={activeTrace.error ? "错误信息" : "响应数据（JSON）"} value={activeTrace.error ? { message: activeTrace.error } : activeTrace.output} emptyText="等待该阶段返回输出" />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="panel trace-explanation-panel">
+        <div className="section-heading">
+          <h3>全流程输入输出释义</h3>
+          <span>面向初学者</span>
+        </div>
+        <p className="principle-copy">本区域用正式业务口径解释透明调用台中的每一个阶段。它不是重复 JSON 字段，而是说明每个阶段接收什么、调用哪个接口、系统内部如何处理，以及结果会被下一步怎样使用。</p>
+        <div className="trace-explanation-list">
+          {traceExplanations.map((item, index) => (
+            <article key={item.stepKey}>
+              <span>{index + 1}</span>
+              <div>
+                <h4>{item.title}</h4>
+                <p><strong>{TRACE_EXPLANATION_LABELS.inputMeaning}：</strong>{item.inputMeaning}</p>
+                <p><strong>{TRACE_EXPLANATION_LABELS.callMeaning}：</strong>{item.callMeaning}</p>
+                <p><strong>{TRACE_EXPLANATION_LABELS.operationMeaning}：</strong>{item.operationMeaning}</p>
+                <p><strong>{TRACE_EXPLANATION_LABELS.outputMeaning}：</strong>{item.outputMeaning}</p>
+                <em>{item.plainLanguageSummary}</em>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -604,6 +692,7 @@ function DetectionPanel({
             <h3>输入记录</h3>
             <span>ProcessRecord</span>
           </div>
+          <p className="principle-copy">工作原理：输入记录是数据库行在本体中的统一格式。RIP_ROP 表字段偏向铆接故障和曲线，main 主表字段偏向主过程记录和预测编码；系统会先整理成 ProcessRecord，后续流程只读取这个统一对象。</p>
           <dl className="detail-grid detect-input-grid">
             {inputSummary.map((item) => (
               <div key={item.label}>
@@ -619,6 +708,7 @@ function DetectionPanel({
             <h3>模型判断</h3>
             <span>{summary.modeLabel}</span>
           </div>
+          <p className="principle-copy">工作原理：模型判断不会只返回一个分数，而是返回类别、置信度、严重程度和证据。证据会指向故障代码、曲线或模型字段，方便复核。</p>
           <div className={`decision-meter severity-${detection?.prediction.severity ?? "idle"}`}>
             <strong>{summary.confidenceLabel}</strong>
             <span>{summary.categoryLabel}</span>
@@ -636,6 +726,7 @@ function DetectionPanel({
             <h3>根因输出</h3>
             <span>{primaryRootCause ? `${Math.round(primaryRootCause.confidence * 100)}%` : "待生成"}</span>
           </div>
+          <p className="principle-copy">工作原理：根因分析把异常模式映射到候选原因，并把每个候选原因绑定证据和建议动作。它不是直接给最终定责，而是给人工复核一个有依据的候选列表。</p>
           {primaryRootCause ? (
             <>
               <strong className="result-title">{primaryRootCause.rootCause}</strong>
@@ -652,6 +743,7 @@ function DetectionPanel({
             <h3>预警报告</h3>
             <span>{report?.severity ?? "待生成"}</span>
           </div>
+          <p className="principle-copy">工作原理：预警报告把检测和根因结果整理成质量人员能执行的任务，包括标题、摘要、触发规则和复核动作。</p>
           {report ? (
             <>
               <strong className="result-title">{report.title}</strong>
@@ -669,6 +761,7 @@ function DetectionPanel({
           <h3>本体路径</h3>
           <span>OWL2 Trace</span>
         </div>
+        <p className="principle-copy">工作原理：本体路径说明一次判断穿过了哪些语义节点。它让人能从 SPR 检测流程一路追到检测结果、异常事件、缺陷模式、根因和报告。</p>
         <div className="semantic-timeline">
           {(report?.ontologyPath ?? detection?.ontologyPath ?? ["SPRProcessRecord", "SPRInspectionProcess", "DetectionModel", "ModelPredictionResult", "InspectionResult", "AnomalyEvent"]).map((item) => <span key={item}>{item}</span>)}
         </div>
@@ -700,6 +793,13 @@ function RootCausePanel({ rootCause }: { rootCause: RootCauseAnalysis | null }) 
   if (!rootCause) return <section className="panel"><p className="muted">请先运行检测流程。</p></section>;
   return (
     <div className="semantic-panels">
+      <section className="panel semantic-panel-wide">
+        <div className="section-heading">
+          <h3>根因分析工作原理</h3>
+          <span>RootCause</span>
+        </div>
+        <p className="principle-copy">系统先读取检测阶段输出的异常模式，再查质量规则中配置的候选根因、证据字段和建议动作。根因输出是“候选解释”，用于帮助质量人员快速定位复核方向。</p>
+      </section>
       {rootCause.candidates.map((candidate) => (
         <section key={candidate.rootCause} className="panel">
           <div className="section-heading">
@@ -723,11 +823,13 @@ function ReportPanel({ report }: { report: WarningReport | null }) {
           <h3>{report.title}</h3>
           <span>{report.severity}</span>
         </div>
+        <p className="principle-copy">工作原理：预警报告把检测类别、根因候选和本体路径合并成一份可复核的质量任务。它保留触发规则和动作列表，便于后续闭环处理。</p>
         <p>{report.summary}</p>
         <div className="semantic-timeline">{report.ontologyPath.map((item) => <span key={item}>{item}</span>)}</div>
       </section>
       <section className="panel">
         <h3>复核动作</h3>
+        <p className="principle-copy">工作原理：复核动作来自根因候选中的推荐措施，系统把它们整理成可执行清单。</p>
         <div className="relation-list compact">{report.actions.map((action) => <div key={action}>{action}</div>)}</div>
       </section>
     </div>
@@ -778,6 +880,7 @@ function KnowledgeExtractionPanel({
           <h3>专家文档规则抽取</h3>
           <span>{extraction ? labelReviewStatus(extraction.reviewStatus) : "未抽取"}</span>
         </div>
+        <p className="principle-copy">工作原理：这里把专家经验文本送入规则抽取接口，系统会尝试识别触发条件、异常模式、证据字段、候选根因和建议动作。抽取结果不会直接进入规则库，必须先复核再发布到本体版本。</p>
         <label>
           来源文档
           <input value={sourceDocument} onChange={(event) => onSourceDocumentChange(event.target.value)} />
@@ -808,6 +911,7 @@ function KnowledgeExtractionPanel({
           <h3>复核队列</h3>
           <span>{candidates.length}</span>
         </div>
+        <p className="principle-copy">工作原理：复核队列是规则进入本体前的人工确认关口。只有“已通过”的候选规则会被发布成新的本体规则节点。</p>
         <div className="review-list">
           {candidates.map((candidate) => {
             const status = reviewOverrides[candidate.candidateId] ?? candidate.reviewStatus;

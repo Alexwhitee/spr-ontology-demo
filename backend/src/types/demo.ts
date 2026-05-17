@@ -1,5 +1,6 @@
 export type {
   DemoDataset,
+  DatabaseImportRequest,
   FieldMapping,
   HierarchyPath,
   OntologyDocument,
