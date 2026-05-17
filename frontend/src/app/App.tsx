@@ -9,10 +9,15 @@ import { TopOntologyView } from "../features/top-ontology/TopOntologyView";
 import { buildAppShellClassName, resolveOwl2ModeForView, type Owl2BusinessView } from "./appLayoutState";
 import {
   buildImportGuidance,
+  buildImportRequestDraft,
   databaseSourceOptions,
   defaultImportPayload,
+  inferFormatFromFileName,
   getDatabaseSourceOption,
-  normalizeImportPayload,
+  parseExcelWorkbook,
+  parseImportText,
+  type ImportPayloadFormat,
+  type ParsedImportTable,
   type DatabaseImportMode
 } from "./databaseImportState";
 import { importDatabaseRowsRemote, loadDataset } from "../lib/data";
@@ -114,12 +119,16 @@ export default function App() {
 function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; onImported: (result: DatabaseImportResult) => void }) {
   const [importMode, setImportMode] = useState<DatabaseImportMode>("row");
   const [sourceTable, setSourceTable] = useState<ProcessRecord["source"]>("rip_rop");
+  const [tableFormat, setTableFormat] = useState<Exclude<ImportPayloadFormat, "excel">>("csv");
   const [jsonRows, setJsonRows] = useState(() => defaultImportPayload("row", "rip_rop"));
+  const [parsedTable, setParsedTable] = useState<ParsedImportTable | null>(null);
   const [token, setToken] = useState(() => localStorage.getItem("spr-ontology-admin-token") ?? "");
   const [isImporting, setIsImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<DatabaseImportResult | null>(null);
   const selectedSource = getDatabaseSourceOption(sourceTable);
+  const effectiveSourceTable = importMode === "table" && parsedTable?.detectedSourceTable ? parsedTable.detectedSourceTable : sourceTable;
+  const effectiveSource = getDatabaseSourceOption(effectiveSourceTable);
   const guidance = buildImportGuidance(importMode, sourceTable);
 
   useEffect(() => {
@@ -128,13 +137,46 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
 
   function handleModeChange(nextMode: DatabaseImportMode) {
     setImportMode(nextMode);
-    setJsonRows(defaultImportPayload(nextMode, sourceTable));
+    setJsonRows(nextMode === "row" ? defaultImportPayload("row", sourceTable) : tableFormat === "json" ? defaultImportPayload("table", sourceTable) : defaultTableTextPayload(tableFormat, sourceTable));
+    setParsedTable(null);
     setMessage(null);
   }
 
   function handleSourceChange(nextSource: ProcessRecord["source"]) {
     setSourceTable(nextSource);
-    setJsonRows(defaultImportPayload(importMode, nextSource));
+    setJsonRows(importMode === "row" ? defaultImportPayload("row", nextSource) : tableFormat === "json" ? defaultImportPayload("table", nextSource) : defaultTableTextPayload(tableFormat, nextSource));
+    setParsedTable(null);
+    setMessage(null);
+  }
+
+  function handleTableFormatChange(nextFormat: Exclude<ImportPayloadFormat, "excel">) {
+    setTableFormat(nextFormat);
+    setJsonRows(nextFormat === "json" ? defaultImportPayload("table", sourceTable) : defaultTableTextPayload(nextFormat, sourceTable));
+    setParsedTable(null);
+    setMessage(null);
+  }
+
+  async function handleFileImport(file: File | undefined) {
+    if (!file) return;
+    setMessage(null);
+    try {
+      const format = inferFormatFromFileName(file.name);
+      const parsed = format === "excel"
+        ? parseExcelWorkbook(await file.arrayBuffer())
+        : parseImportText(await file.text(), format, "table");
+      setParsedTable({ ...parsed, tableName: parsed.tableName || file.name });
+      if (parsed.detectedSourceTable) setSourceTable(parsed.detectedSourceTable);
+      setJsonRows("");
+      setMessage(`已读取 ${file.name}，解析出 ${parsed.rows.length} 行。${parsed.detectionReason}`);
+    } catch (error) {
+      setParsedTable(null);
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function handleTableTextChange(value: string) {
+    setJsonRows(value);
+    setParsedTable(null);
     setMessage(null);
   }
 
@@ -142,8 +184,14 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
     setIsImporting(true);
     setMessage(null);
     try {
-      const rows = normalizeImportPayload(jsonRows, importMode);
-      const request = { sourceTable, rows };
+      const requestDraft = buildImportRequestDraft({
+        mode: importMode,
+        fallbackSourceTable: sourceTable,
+        textPayload: jsonRows,
+        textFormat: tableFormat,
+        parsedTable
+      });
+      const request = { sourceTable: requestDraft.sourceTable, rows: requestDraft.rows };
       let result: DatabaseImportResult;
       let usedLocalFallback = false;
       if (token.trim().length > 0) {
@@ -159,7 +207,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
       }
       setLastResult(result);
       onImported(result);
-      setMessage(`已导入 ${result.importedRecordIds.length} 条记录到${selectedSource.shortLabel}，并自动刷新本体、图谱和检测输入。${usedLocalFallback ? "当前为页面内本地刷新；填写管理员令牌并连接 Worker 后可写入云端。" : "已写入 Worker 并返回刷新数据集。"}`);
+      setMessage(`已导入 ${result.importedRecordIds.length} 条记录到${getDatabaseSourceOption(requestDraft.sourceTable).shortLabel}，并自动刷新本体、图谱和检测输入。${usedLocalFallback ? "当前为页面内本地刷新；填写管理员令牌并连接 Worker 后可写入云端。" : "已写入 Worker 并返回刷新数据集。"}${importMode === "table" && !requestDraft.detectedSourceTable ? " 本次未自动识别来源表，已使用“无法识别时的备用归类”。" : ""}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -174,7 +222,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
           <h3>数据库导入自动刷新</h3>
           <span>{dataset.records.length.toLocaleString("zh-CN")} 条当前记录</span>
         </div>
-        <p className="principle-copy">工作原理：系统当前面对的是同一个业务数据集，里面包含 main 主表和 RIP_ROP 表两类来源表。导入时先选择“导入单行”或“导入整张表”，再选择目标来源表；系统会按目标表字段口径把原始数据标准化为 ProcessRecord，自动刷新本体、图谱、字段映射和检测输入。</p>
+        <p className="principle-copy">工作原理：系统当前面对的是同一个业务数据集，里面包含 main 主表和 RIP_ROP 表两类来源表。新增单条数据库行时需要手动指定目标来源表；导入整张数据库表时不需要先指定目标来源表，系统会先读取文件结构并自动判断来源表，只有无法判断时才使用备用归类。确认来源表后，系统会把原始数据标准化为 ProcessRecord，并自动刷新本体、图谱、字段映射和检测输入。</p>
         <div className="import-mode-switch" role="tablist" aria-label="选择导入方式">
           <button type="button" className={importMode === "row" ? "active" : ""} onClick={() => handleModeChange("row")}>
             新增单条数据库行
@@ -185,13 +233,13 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
         </div>
         <div className="import-controls">
           <label>
-            目标来源表
+            {importMode === "row" ? "目标来源表" : "无法识别时的备用归类"}
             <select value={sourceTable} onChange={(event) => handleSourceChange(event.target.value as ProcessRecord["source"])}>
               {databaseSourceOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <span>{selectedSource.description}</span>
+            <span>{importMode === "row" ? selectedSource.description : "整表导入会优先自动识别来源表；当文件字段不足或识别不明确时，才使用这里的备用归类。"}</span>
           </label>
           <label>
             管理员令牌
@@ -199,25 +247,66 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
             <span>不填写时只进行页面内本地刷新；填写并连接 Worker 后可写入云端数据集。</span>
           </label>
         </div>
+        {importMode === "table" && (
+          <div className="table-file-import">
+            <div>
+              <strong>整张表文件导入</strong>
+              <p>支持 Excel（.xlsx/.xls）、CSV（.csv）、SQL INSERT（.sql）。上传后系统会读取表头、SQL 表名或 Excel 工作表名，自动判断这张表应进入 RIP_ROP 表还是 main 主表；JSON 数组只保留为高级调试入口。</p>
+            </div>
+            <label>
+              选择表文件
+              <input type="file" accept=".xlsx,.xls,.csv,.sql,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,.txt" onChange={(event) => void handleFileImport(event.currentTarget.files?.[0])} />
+            </label>
+            {parsedTable && (
+              <div className="table-detection-result">
+                <strong>{parsedTable.detectedSourceTable ? `已自动识别：${getDatabaseSourceOption(parsedTable.detectedSourceTable).shortLabel}` : `未能自动识别，使用备用归类：${effectiveSource.shortLabel}`}</strong>
+                <span>{parsedTable.tableName ? `表名/工作表：${parsedTable.tableName}；` : ""}共 {parsedTable.rows.length} 行；格式：{formatLabel(parsedTable.format)}</span>
+                <p>{parsedTable.detectionReason}</p>
+                <p>已读取字段：{previewColumns(parsedTable.columns)}</p>
+              </div>
+            )}
+          </div>
+        )}
         <div className="import-guidance">
           <div>
             <strong>数据库关系</strong>
             <p>{guidance.databaseMeaning}</p>
           </div>
           <div>
-            <strong>目标表选择</strong>
+            <strong>{importMode === "row" ? "目标表选择" : "自动识别规则"}</strong>
             <p>{guidance.tableMeaning}</p>
           </div>
           <div>
-            <strong>JSON 内容要求</strong>
+            <strong>{importMode === "row" ? "JSON 内容要求" : "文件内容要求"}</strong>
             <p>{guidance.payloadMeaning}</p>
           </div>
         </div>
-        <label className="import-json">
-          {importMode === "row" ? "单条数据库行 JSON 对象" : "整张表 JSON 数组"}
-          <textarea value={jsonRows} rows={importMode === "row" ? 8 : 11} onChange={(event) => setJsonRows(event.target.value)} />
-          <span>{selectedSource.expectedContent}</span>
-        </label>
+        {importMode === "row" ? (
+          <label className="import-json">
+            单条数据库行 JSON 对象
+            <textarea value={jsonRows} rows={8} onChange={(event) => setJsonRows(event.target.value)} />
+            <span>{selectedSource.expectedContent}</span>
+          </label>
+        ) : (
+          <div className="table-text-import">
+            <div className="import-controls compact">
+              <label>
+                粘贴格式
+                <select value={tableFormat} onChange={(event) => handleTableFormatChange(event.target.value as Exclude<ImportPayloadFormat, "excel">)}>
+                  <option value="csv">CSV 文本</option>
+                  <option value="sql">SQL INSERT</option>
+                  <option value="json">JSON 数组</option>
+                </select>
+                <span>没有文件时，可以在这里粘贴表内容。Excel 请使用上方文件选择器。</span>
+              </label>
+            </div>
+            <label className="import-json">
+              可选：粘贴整表内容
+              <textarea value={jsonRows} rows={10} onChange={(event) => handleTableTextChange(event.target.value)} />
+              <span>{tableFormat === "json" ? "JSON 数组是高级调试入口，不是整表导入的唯一形式。" : "粘贴 CSV 或 SQL 后，点击导入时同样会自动识别来源表。"}</span>
+            </label>
+          </div>
+        )}
         <div className="action-row">
           <button type="button" className="primary-action" onClick={handleImport} disabled={isImporting}>
             {isImporting ? <Loader2 size={16} /> : <Database size={16} />}
@@ -232,7 +321,7 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
           <em>{guidance.automationMeaning}</em>
         </div>
         {(lastResult?.automationSteps ?? [
-          { key: "records", title: "1. 写入记录层", detail: "等待导入新行或整张表；系统会把目标来源表中的每一行转换为统一记录。", status: "done" },
+          { key: "records", title: "1. 写入记录层", detail: "等待导入新行或整张表；单行导入使用手动选择的目标来源表，整表导入优先使用自动识别出的来源表。系统会把每一行转换为统一记录。", status: "done" },
           { key: "fields", title: "2. 识别字段层", detail: "系统会识别新增字段；已知字段直接映射，未知字段先标记为“需确认”。", status: "done" },
           { key: "ontology", title: "3. 刷新本体层", detail: "SPR 过程记录实例数、字段映射和语义结构会同步更新。", status: "done" },
           { key: "graph", title: "4. 重建图谱层", detail: "图节点、关系边和层级路径会使用刷新后的本体数据重新生成。", status: "done" },
@@ -249,6 +338,33 @@ function DatabaseImportPanel({ dataset, onImported }: { dataset: DemoDataset; on
       </div>
     </section>
   );
+}
+
+function defaultTableTextPayload(format: Exclude<ImportPayloadFormat, "excel">, sourceTable: ProcessRecord["source"]): string {
+  if (format === "json") return defaultImportPayload("table", sourceTable);
+  if (format === "sql") {
+    return sourceTable === "rip_rop"
+      ? "INSERT INTO RIP_ROP (`实物编号`, `Devicename`, `日期/时间`, `故障代码`, `铆接曲线`, `包络线`) VALUES ('sql-001', 'RIVETER-01', '2026/5/17 12:00:00', 'DDC: 铆接曲线高于包络线', '1,2,6,9,12', '1,2,3,4,5');"
+      : "INSERT INTO main (id, prog_no, rivet_id, line_name, device_name, original_data, calculate_data, error_rate, pre, origin_time) VALUES ('sql-main-001', 'P-01', 'R-01', 'RC', 'RC050R02', '1,2,3', '1,2,4', 0.03, '3.000', '2026-05-17 12:00:00');";
+  }
+  return sourceTable === "rip_rop"
+    ? ["实物编号,Devicename,日期/时间,故障代码,铆接曲线,包络线", "csv-001,RIVETER-01,2026/5/17 12:00:00,DDC: 铆接曲线高于包络线,\"1,2,6,9,12\",\"1,2,3,4,5\""].join("\n")
+    : ["id,prog_no,rivet_id,line_name,device_name,original_data,calculate_data,error_rate,pre,origin_time", "csv-main-001,P-01,R-01,RC,RC050R02,\"1,2,3\",\"1,2,4\",0.03,3.000,2026-05-17 12:00:00"].join("\n");
+}
+
+function formatLabel(format: ImportPayloadFormat): string {
+  return {
+    json: "JSON",
+    csv: "CSV",
+    sql: "SQL",
+    excel: "Excel"
+  }[format];
+}
+
+function previewColumns(columns: string[]): string {
+  if (columns.length === 0) return "未读取到字段名";
+  const visibleColumns = columns.slice(0, 8).join("、");
+  return columns.length > 8 ? `${visibleColumns} 等 ${columns.length} 个字段` : visibleColumns;
 }
 
 function isOwl2BusinessView(view: ViewKey): view is Owl2BusinessView {

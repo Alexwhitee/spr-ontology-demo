@@ -2056,6 +2056,10 @@ button {
   margin-bottom: 10px;
 }
 
+.import-controls.compact {
+  grid-template-columns: minmax(180px, 0.35fr);
+}
+
 .import-controls label,
 .import-json {
   color: #687386;
@@ -2087,6 +2091,70 @@ button {
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   min-height: 150px;
   resize: vertical;
+}
+
+.table-file-import {
+  background: #f8fafc;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 12px;
+}
+
+.table-file-import > div:first-child strong,
+.table-file-import > div:first-child p {
+  display: block;
+}
+
+.table-file-import > div:first-child p {
+  color: #5d697b;
+  line-height: 1.55;
+  margin: 4px 0 0;
+}
+
+.table-file-import label {
+  color: #687386;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.table-file-import input[type="file"] {
+  background: #ffffff;
+  border: 1px dashed #aebbd0;
+  border-radius: 8px;
+  color: #344054;
+  padding: 10px;
+}
+
+.table-detection-result {
+  background: #eef6ff;
+  border: 1px solid #b8d7ff;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.table-detection-result strong {
+  color: #172033;
+}
+
+.table-detection-result span,
+.table-detection-result p {
+  color: #5d697b;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.table-text-import {
+  border-top: 1px solid #e5eaf2;
+  margin-top: 10px;
+  padding-top: 10px;
 }
 
 .import-guidance {
