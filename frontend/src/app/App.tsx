@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, Boxes, CheckCircle2, ClipboardCheck, Database, FileCode2, GitBranch, Loader2, Network, PanelLeftClose, PanelLeftOpen, PencilLine, Radar, Route, ShieldCheck, Siren } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Activity, Boxes, CheckCircle2, ClipboardCheck, Database, FileCode2, GitBranch, KeyRound, Loader2, LogIn, LogOut, Network, PanelLeftClose, PanelLeftOpen, PencilLine, Radar, Route, ShieldCheck, Siren, UserRound } from "lucide-react";
 import { Chart } from "../components/Chart";
 import { HierarchyLinkageView } from "../features/hierarchy-linkage/HierarchyLinkageView";
 import { Owl2WorkbenchView } from "../features/owl2-workbench/Owl2WorkbenchView";
@@ -23,6 +23,7 @@ import {
 import { importDatabaseRowsRemote, loadDataset } from "../lib/data";
 import type { DatabaseImportResult, DemoDataset, ProcessRecord } from "../types/demo";
 import { importDatabaseRows } from "../../../shared/ontology";
+import { isValidLogin, readStoredAuth, writeStoredAuth } from "./authState";
 
 type ViewKey = "top" | "spr" | "linkage" | Owl2BusinessView | "editor";
 
@@ -40,6 +41,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Network }> = [
 ];
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(readInitialAuth);
   const [dataset, setDataset] = useState<DemoDataset | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("linkage");
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +49,37 @@ export default function App() {
   const [preferredRecordId, setPreferredRecordId] = useState<string | undefined>();
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    let isActive = true;
     loadDataset()
-      .then(setDataset)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
+      .then((loadedDataset) => {
+        if (isActive) setDataset(loadedDataset);
+      })
+      .catch((err: unknown) => {
+        if (isActive) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated]);
+
+  function handleLogin(username: string, password: string) {
+    if (!isValidLogin(username, password)) return false;
+    writeBrowserAuth(true);
+    setIsAuthenticated(true);
+    return true;
+  }
+
+  function handleLogout() {
+    writeBrowserAuth(false);
+    setIsAuthenticated(false);
+    setDataset(null);
+    setError(null);
+    setActiveView("linkage");
+    setPreferredRecordId(undefined);
+  }
+
+  if (!isAuthenticated) return <LoginView onLogin={handleLogin} />;
 
   if (error) return <div className="fatal">数据加载失败：{error}</div>;
   if (!dataset) return <div className="loading">SPR 演示数据加载中</div>;
@@ -96,7 +125,7 @@ export default function App() {
       </aside>
 
       <main className="workspace">
-        <TopBar dataset={dataset} />
+        <TopBar dataset={dataset} onLogout={handleLogout} />
         <OverviewStrip dataset={dataset} activeView={activeView} onNavigate={setActiveView} />
         <DatabaseImportPanel
           dataset={dataset}
@@ -113,6 +142,71 @@ export default function App() {
         {activeView === "editor" && <OntologyEditorView dataset={dataset} />}
       </main>
     </div>
+  );
+}
+
+function readInitialAuth() {
+  try {
+    return typeof localStorage !== "undefined" && readStoredAuth(localStorage);
+  } catch {
+    return false;
+  }
+}
+
+function writeBrowserAuth(isAuthenticated: boolean) {
+  try {
+    if (typeof localStorage !== "undefined") writeStoredAuth(localStorage, isAuthenticated);
+  } catch {
+    // If storage is unavailable, the current in-memory session still works.
+  }
+}
+
+function LoginView({ onLogin }: { onLogin: (username: string, password: string) => boolean }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (onLogin(username, password)) return;
+    setMessage("账号或密码错误");
+  }
+
+  return (
+    <main className="login-shell">
+      <form className="login-panel" onSubmit={handleSubmit}>
+        <div className="login-brand">
+          <Boxes size={34} />
+          <div>
+            <strong>SPR 本体演示系统</strong>
+            <span>受控访问</span>
+          </div>
+        </div>
+        <div className="login-heading">
+          <span className="eyebrow">系统登录</span>
+          <h1>请输入账号和密码</h1>
+        </div>
+        <label>
+          <span>账号</span>
+          <div className="login-input">
+            <UserRound size={18} />
+            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" autoFocus />
+          </div>
+        </label>
+        <label>
+          <span>密码</span>
+          <div className="login-input">
+            <KeyRound size={18} />
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+          </div>
+        </label>
+        {message && <p className="login-error">{message}</p>}
+        <button type="submit" className="login-submit">
+          <LogIn size={18} />
+          登录
+        </button>
+      </form>
+    </main>
   );
 }
 
@@ -374,7 +468,7 @@ function isOwl2BusinessView(view: ViewKey): view is Owl2BusinessView {
   return view === "owl2" || view === "owl2-rules" || view === "owl2-detect" || view === "owl2-root" || view === "owl2-report" || view === "owl2-knowledge";
 }
 
-function TopBar({ dataset }: { dataset: DemoDataset }) {
+function TopBar({ dataset, onLogout }: { dataset: DemoDataset; onLogout: () => void }) {
   return (
     <header className="topbar">
       <div>
@@ -383,6 +477,10 @@ function TopBar({ dataset }: { dataset: DemoDataset }) {
       </div>
       <div className="topbar-meta">
         <span>生成时间 {new Date(dataset.generatedAt).toLocaleString("zh-CN")}</span>
+        <button type="button" className="topbar-logout" onClick={onLogout}>
+          <LogOut size={15} />
+          退出
+        </button>
       </div>
     </header>
   );
