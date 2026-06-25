@@ -19,6 +19,7 @@ import {
   runDetection,
   validateOwl2Artifacts,
   type DetectionResult,
+  type ReconstructionPrediction,
   type RuleExtractionCandidate,
   type RuleReviewStatus,
   type RootCauseAnalysis
@@ -341,9 +342,10 @@ function buildSubgraph(dataset: DemoDataset, id: string) {
 
 async function handleDetectionRun(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {
   if (request.method !== "POST") return json({ error: "method not allowed" }, env, 405);
-  const body = await request.json().catch(() => ({})) as { recordId?: string; modelMode?: "mock" | "llm"; includeCurveSummary?: boolean };
+  const body = await request.json().catch(() => ({})) as { recordId?: string; modelMode?: "mock" | "llm" | "marpp"; includeCurveSummary?: boolean };
   const recordId = body.recordId ?? dataset.records[0]?.id;
   if (!recordId) return json({ error: "recordId is required" }, env, 400);
+  if (body.modelMode === "marpp") return json(await runMarppDetection(dataset, recordId, env), env);
   const modelMode = body.modelMode ?? (env.LLM_API_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL ? "llm" : "mock");
   return json(await runDetection(dataset, {
     recordId,
@@ -356,6 +358,113 @@ async function handleDetectionRun(request: Request, env: Env, dataset: DemoDatas
       timeoutMs: env.LLM_TIMEOUT_MS ? Number(env.LLM_TIMEOUT_MS) : undefined
     }
   }), env);
+}
+
+async function runMarppDetection(dataset: DemoDataset, recordId: string, env: Env): Promise<DetectionResult> {
+  const record = dataset.records.find((item) => item.id === recordId);
+  if (!record) throw new Error(`record not found: ${recordId}`);
+  const base = await runDetection(dataset, { recordId, modelMode: "mock", includeCurveSummary: true });
+  const apiBase = env.SPR_DETECTOR_API_BASE_URL;
+  if (!apiBase) {
+    return {
+      ...base,
+      modelMode: "mock",
+      modelDiagnostics: {
+        attemptedModelMode: "marpp",
+        fallbackReason: "SPR_DETECTOR_API_BASE_URL is not configured"
+      }
+    };
+  }
+  try {
+    const curve = await getCurve(recordId, env) as { curves?: { riveting?: number[]; envelope?: number[] } } | null;
+    const riveting = curve?.curves?.riveting ?? record.curves?.riveting ?? [];
+    if (riveting.length === 0) throw new Error("record has no riveting curve");
+    const marpp = await callMarppDetect(env, { recordId, riveting });
+    const isAbnormal = marpp.riskCategory === "abnormal";
+    const isReview = marpp.riskCategory === "review";
+    const prediction = {
+      category: isAbnormal ? "prediction_review" as const : "normal" as const,
+      confidence: marpp.confidence,
+      severity: isAbnormal ? "warning" as const : "normal" as const,
+      evidence: marpp.evidence,
+      needsReview: isAbnormal || isReview
+    };
+    return {
+      ...base,
+      modelMode: "marpp",
+      prediction,
+      anomalyEvent: prediction.severity === "normal" ? undefined : {
+        id: `anomaly-${record.id}`,
+        type: "铆接曲线重构异常",
+        severity: prediction.severity
+      },
+      reconstructionPrediction: marpp,
+      modelDiagnostics: { attemptedModelMode: "marpp" }
+    };
+  } catch (error) {
+    return {
+      ...base,
+      modelMode: "mock",
+      modelDiagnostics: {
+        attemptedModelMode: "marpp",
+        fallbackReason: error instanceof Error ? error.message : String(error)
+      }
+    };
+  }
+}
+
+async function callMarppDetect(env: Env, input: { recordId: string; riveting: number[] }): Promise<ReconstructionPrediction> {
+  const apiBase = env.SPR_DETECTOR_API_BASE_URL?.replace(/\/+$/, "");
+  if (!apiBase) throw new Error("SPR_DETECTOR_API_BASE_URL is not configured");
+  const headers: HeadersInit = { "content-type": "application/json" };
+  const apiKey = env.SPR_DETECTOR_API_KEY;
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  const response = await fetch(`${apiBase}/api/spr-detect/detect`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      recordId: input.recordId,
+      curves: {
+        riveting: input.riveting
+      },
+      useCache: true
+    }),
+    signal: createTimeoutSignal(resolveTimeoutMs(env))
+  });
+  if (!response.ok) throw new Error(`MARPP detector service returned HTTP ${response.status}`);
+  const value = await response.json() as ReconstructionPrediction;
+  return normalizeMarppPrediction(value);
+}
+
+function resolveTimeoutMs(env: Env): number {
+  const raw = env.SPR_DETECTOR_TIMEOUT_MS;
+  return raw ? Number(raw) : 3000;
+}
+
+function normalizeMarppPrediction(value: ReconstructionPrediction): ReconstructionPrediction {
+  const riskCategories: ReconstructionPrediction["riskCategory"][] = ["normal", "abnormal", "review"];
+  const modes: ReconstructionPrediction["mode"][] = ["live", "cache", "fallback"];
+  if (value.modelName !== "MARPP") throw new Error("MARPP response modelName is invalid");
+  if (!modes.includes(value.mode)) throw new Error("MARPP response mode is invalid");
+  if (!riskCategories.includes(value.riskCategory)) throw new Error("MARPP response riskCategory is invalid");
+  if (!Array.isArray(value.reconstructionCurve) || !Array.isArray(value.pointError)) throw new Error("MARPP response is missing reconstruction arrays");
+  return {
+    ...value,
+    confidence: clamp01(value.confidence),
+    anomalyScore: clamp01(value.anomalyScore),
+    evidence: Array.isArray(value.evidence) ? value.evidence.filter((item): item is string => typeof item === "string") : []
+  };
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0.5));
+}
+
+function createTimeoutSignal(timeoutMs?: number): AbortSignal | undefined {
+  if (!timeoutMs || typeof AbortController === "undefined") return undefined;
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), timeoutMs);
+  return controller.signal;
 }
 
 async function handleRootCauseAnalyze(request: Request, env: Env, dataset: DemoDataset): Promise<Response> {

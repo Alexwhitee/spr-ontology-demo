@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 模型产物与缓存（D6：放 artifacts 并 gitignore；runbook 记录重训方法）
+artifacts/model/
+artifacts/cache/
+
+# 测试/类型检查缓存
+.pytest_cache/
+.mypy_cache/

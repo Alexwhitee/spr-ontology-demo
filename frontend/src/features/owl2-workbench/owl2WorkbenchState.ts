@@ -133,8 +133,8 @@ export function buildDetectionFlowSteps(state: DetectionFlowState): DetectionFlo
       key: "detect",
       title: "调用检测 API",
       detail: detection
-        ? `${detection.modelMode === "llm" ? "LLM" : "本体规则"} 返回 ${categoryLabel(detection.prediction.category)}，置信度 ${formatPercent(detection.prediction.confidence)}。`
-        : "POST /api/detect/run，Worker 读取模型配置并生成结构化预测。",
+        ? `${detectionModelLabel(detection.modelMode)} 返回 ${categoryLabel(detection.prediction.category)}，置信度 ${formatPercent(detection.prediction.confidence)}。`
+        : "POST /api/detect/run，Worker 调用 MARPP 重构检测服务，失败时降级为本体规则。",
       status: statusForStep(phase, "detecting", Boolean(detection), errorMode)
     },
     {
@@ -188,7 +188,7 @@ export function buildDetectionTraceSteps(state: DetectionFlowState & {
       key: "detect",
       title: "检测 API",
       endpoint: "/api/detect/run",
-      description: "调用 Worker 检测接口，返回模型或规则的结构化预测结果。",
+      description: "调用 Worker 检测接口。MARPP 模式会先请求本地重构异常检测服务，失败时降级为本体规则。",
       fallbackStatus: statusForStep(phase, "detecting", Boolean(detection), errorMode),
       fallbackInput: { recordId, includeCurveSummary: true },
       fallbackOutput: detection,
@@ -251,7 +251,7 @@ export function buildDetectionTraceExplanations(steps: DetectionTraceStep[]): De
         title: step.title,
         inputMeaning: "输入数据是检测请求 JSON，通常包含 recordId 和 includeCurveSummary。后端会根据 recordId 读取完整 ProcessRecord，包括故障代码、pre 预测编码、error_rate、铆接曲线摘要和包络线摘要。",
         callMeaning: `接口调用采用 ${endpoint}。请求体以 JSON 形式提交，返回值也使用 JSON，便于页面把检测类别、证据字段和异常事件逐项展示出来。`,
-        operationMeaning: "Worker 会先查找记录，再按照本体规则或模型策略进行判断：RIP_ROP 表优先使用故障代码和曲线/包络线摘要；main 主表优先保留 pre 与 error_rate 作为预测线索；新增来源表在字段语义确认前先作为可追溯过程记录保守处理。系统会把结果归入正常、曲线高于包络线、曲线低于包络线、冲压行程过大或预测结果待复核等类别。",
+        operationMeaning: "Worker 会先查找记录。MARPP 模式会读取曲线并调用本地重构异常检测服务，服务不可用、超时或曲线缺失时降级为本体规则；规则路径下，RIP_ROP 表优先使用故障代码和曲线/包络线摘要，main 主表优先保留 pre 与 error_rate 作为预测线索，新增来源表在字段语义确认前先作为可追溯过程记录保守处理。系统会把结果归入正常、重构异常或预测结果待复核等类别。",
         outputMeaning: "输出结果是结构化检测结论，包含预测类别、置信度、严重等级、证据字段、异常事件和本体路径。页面后续的根因分析和预警报告都基于这个输出继续处理。",
         plainLanguageSummary: "本步骤把一条数据库记录转换成可解释、可追溯的质量检测判断。"
       };
@@ -309,11 +309,17 @@ export function summarizeDetectionOutcome(detection: DetectionResult | null): {
   const needsReview = detection.prediction.needsReview || detection.prediction.severity !== "normal";
   return {
     confidenceLabel: formatPercent(detection.prediction.confidence),
-    modeLabel: detection.modelMode === "llm" ? "阿里云 Qwen LLM" : "本体规则演示",
+    modeLabel: detectionModelLabel(detection.modelMode),
     categoryLabel: categoryLabel(detection.prediction.category),
     severityLabel: severityLabel(detection.prediction.severity),
     decision: needsReview ? "需要复核：该记录触发了质量异常线索。" : "无需阻塞：该记录未触发阻塞性质量规则。"
   };
+}
+
+function detectionModelLabel(modelMode: DetectionResult["modelMode"]): string {
+  if (modelMode === "marpp") return "MARPP 重构检测";
+  if (modelMode === "llm") return "阿里云 Qwen LLM";
+  return "本体规则演示";
 }
 
 export function statusText(status: FlowStepStatus): string {

@@ -25,9 +25,15 @@ describe("OWL2 ontology service core", () => {
     expect(owl).toContain("owl:Ontology");
     expect(owl).toContain("SPRInspectionProcess");
     expect(owl).toContain("DetectionModel");
+    expect(owl).toContain("TimeSeriesForecastModel");
+    expect(owl).toContain("ForecastHorizon");
+    expect(owl).toContain("PredictedCurve");
+    expect(owl).toContain("ForecastAnomalyEvent");
     expect(owl).toContain("WarningReport");
     expect(owl).toContain("hasInspectionProcess");
     expect(owl).toContain("hasRootCauseCandidate");
+    expect(owl).toContain("hasForecastHorizon");
+    expect(owl).toContain("predictsCurve");
   });
 
   it("exports a top-level OWL2 aggregate that excludes the SPR module", () => {
@@ -99,6 +105,9 @@ describe("OWL2 ontology service core", () => {
     expect(relatedProperties.find((property) => property.id === "hasRootCauseCandidate")?.description).toContain("异常事件");
     expect(sprInspection?.parent).toBe("InspectionProcess");
     expect(sprInspectionParentProperties.map((property) => property.label)).toEqual(expect.arrayContaining(["调用检测模型", "产生检测结果"]));
+    expect(classes.find((item) => item.id === "TimeSeriesForecastModel")?.parent).toBe("DetectionModel");
+    expect(classes.find((item) => item.id === "PredictedCurve")?.parent).toBe("CurveData");
+    expect(properties.find((property) => property.id === "predictsCurve")?.label).toBe("重构曲线");
   });
 
   it("uses an OpenAI-compatible LLM endpoint when model configuration is provided", async () => {

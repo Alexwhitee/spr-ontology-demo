@@ -11,6 +11,11 @@
     <rdfs:label>检测模型</rdfs:label>
     <rdfs:comment>用于检测过程记录的 AI 模型或本体规则模型。</rdfs:comment>
   </owl:Class>
+  <owl:Class rdf:about="#TimeSeriesForecastModel">
+    <rdfs:subClassOf rdf:resource="#DetectionModel"/>
+    <rdfs:label>异常检测模型</rdfs:label>
+    <rdfs:comment>用于对过程曲线做重构式异常检测的模型，例如本地 MARPP 重构服务。</rdfs:comment>
+  </owl:Class>
   <owl:Class rdf:about="#ModelService">
     <rdfs:subClassOf rdf:resource="#Service"/>
     <rdfs:label>模型服务</rdfs:label>
@@ -35,6 +40,21 @@
     <rdfs:subClassOf rdf:resource="#InspectionResult"/>
     <rdfs:label>模型预测结果</rdfs:label>
     <rdfs:comment>模型或规则服务输出的预测类别、置信度和证据。</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#ForecastHorizon">
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <rdfs:label>序列长度</rdfs:label>
+    <rdfs:comment>重构式异常检测模型输入曲线的点数或时间跨度的语义描述。</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#PredictedCurve">
+    <rdfs:subClassOf rdf:resource="#CurveData"/>
+    <rdfs:label>重构曲线</rdfs:label>
+    <rdfs:comment>模型对输入过程曲线进行重构得到的派生曲线。</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#ForecastAnomalyEvent">
+    <rdfs:subClassOf rdf:resource="#AnomalyEvent"/>
+    <rdfs:label>重构异常事件</rdfs:label>
+    <rdfs:comment>由重构误差触发的异常事件。</rdfs:comment>
   </owl:Class>
   <owl:Class rdf:about="#ModelCallLog">
     <rdfs:subClassOf rdf:resource="#TraceableEntity"/>
@@ -75,6 +95,16 @@
     <rdfs:label>模型调用日志</rdfs:label>
     <rdfs:domain rdf:resource="#ModelInvocation"/>
     <rdfs:range rdf:resource="#ModelCallLog"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#hasForecastHorizon">
+    <rdfs:label>序列长度</rdfs:label>
+    <rdfs:domain rdf:resource="#ModelInvocation"/>
+    <rdfs:range rdf:resource="#ForecastHorizon"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#predictsCurve">
+    <rdfs:label>重构曲线</rdfs:label>
+    <rdfs:domain rdf:resource="#ModelPredictionResult"/>
+    <rdfs:range rdf:resource="#PredictedCurve"/>
   </owl:ObjectProperty>
   <owl:DatatypeProperty rdf:about="#predictionCategory">
     <rdfs:label>预测类别</rdfs:label>

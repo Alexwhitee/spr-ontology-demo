@@ -24,4 +24,7 @@ export type Env = {
   LLM_API_KEY?: string;
   LLM_MODEL?: string;
   LLM_TIMEOUT_MS?: string;
+  SPR_DETECTOR_API_BASE_URL?: string;
+  SPR_DETECTOR_TIMEOUT_MS?: string;
+  SPR_DETECTOR_API_KEY?: string;
 };

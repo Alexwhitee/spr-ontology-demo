@@ -2589,6 +2589,75 @@ button {
   transform: translateY(-1px);
 }
 
+.model-mode-picker {
+  align-items: stretch;
+  background: #ffffff;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+  padding: 10px 12px;
+}
+
+.model-mode-picker span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.model-mode-picker select {
+  border: 0;
+  color: #101828;
+  font: inherit;
+  font-weight: 800;
+  outline: 0;
+}
+
+.marpp-reconstruction {
+  border-top: 1px solid #eaecf0;
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.marpp-reconstruction-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.marpp-reconstruction-meta span,
+.model-diagnostic {
+  background: #f2f4f7;
+  border-radius: 8px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 9px;
+}
+
+.marpp-reconstruction-meta .meta-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.marpp-chart {
+  height: 240px;
+  min-width: 0;
+  width: 100%;
+}
+
+.marpp-chart-error {
+  height: 150px;
+}
+
+.model-diagnostic {
+  display: block;
+  margin-top: 12px;
+}
+
 @media (max-width: 1100px) {
   .app-shell,
   .app-shell.sidebar-collapsed {
@@ -2665,6 +2734,10 @@ button {
 
   .record-picker-panel {
     margin-left: 0;
+    width: 100%;
+  }
+
+  .model-mode-picker {
     width: 100%;
   }
 

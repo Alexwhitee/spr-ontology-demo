@@ -49,7 +49,7 @@ export type OntologyValidationResult = {
 
 export type DetectionRequest = {
   recordId: string;
-  modelMode?: "mock" | "llm";
+  modelMode?: "mock" | "llm" | "marpp";
   includeCurveSummary?: boolean;
   llm?: LlmRuntimeConfig;
 };
@@ -76,7 +76,7 @@ export type DetectionResult = {
   recordId: string;
   inspectionProcessId: string;
   modelInvocationId: string;
-  modelMode: "mock" | "llm";
+  modelMode: "mock" | "llm" | "marpp";
   prediction: DetectionPrediction;
   anomalyEvent?: {
     id: string;
@@ -84,6 +84,26 @@ export type DetectionResult = {
     severity: "warning" | "critical";
   };
   ontologyPath: string[];
+  reconstructionPrediction?: ReconstructionPrediction;
+  modelDiagnostics?: {
+    attemptedModelMode: "mock" | "llm" | "marpp";
+    fallbackReason?: string;
+  };
+};
+
+export type ReconstructionPrediction = {
+  modelName: "MARPP";
+  modelVersion: string;
+  mode: "live" | "cache" | "fallback";
+  inputCurve: number[];
+  reconstructionCurve: number[];
+  pointError: number[];
+  anomalyScore: number;
+  threshold: number;
+  riskCategory: "normal" | "abnormal" | "review";
+  confidence: number;
+  evidence: string[];
+  durationMs?: number;
 };
 
 export type RootCauseCandidate = {
@@ -194,11 +214,15 @@ const classZh: Record<string, { label: string; description: string }> = {
   QualityRule: { label: "质量规则", description: "用于质量判定和诊断的规则。" },
   WarningReport: { label: "预警报告", description: "由本体驱动流程生成的质量预警报告。" },
   DetectionModel: { label: "检测模型", description: "用于检测过程记录的 AI 模型或本体规则模型。" },
+  TimeSeriesForecastModel: { label: "异常检测模型", description: "用于对过程曲线做重构式异常检测的模型，例如本地 MARPP 重构服务。" },
   ModelService: { label: "模型服务", description: "可被调用的模型服务接口。" },
   ModelInvocation: { label: "模型调用记录", description: "一次具体模型调用的请求、响应和状态记录。" },
   ModelInputTemplate: { label: "模型输入模板", description: "模型需要接收的字段结构。" },
   ModelOutputTemplate: { label: "模型输出模板", description: "模型需要返回的结构化结果。" },
   ModelPredictionResult: { label: "模型预测结果", description: "模型或规则服务输出的预测类别、置信度和证据。" },
+  ForecastHorizon: { label: "序列长度", description: "重构式异常检测模型输入曲线的点数或时间跨度的语义描述。" },
+  PredictedCurve: { label: "重构曲线", description: "模型对输入过程曲线进行重构得到的派生曲线。" },
+  ForecastAnomalyEvent: { label: "重构异常事件", description: "由重构误差触发的异常事件。" },
   ModelCallLog: { label: "模型调用日志", description: "模型调用过程中的日志和降级状态。" },
   SPRProcess: { label: "SPR工艺", description: "SPR 自冲铆工艺扩展。" },
   SPRProcessRecord: { label: "SPR过程记录", description: "每一条 SPR 数据库记录的统一承载入口。" },
@@ -257,6 +281,8 @@ const propertyZh: Record<string, { label: string; description: string }> = {
   hasPredictionResult: { label: "包含预测结果", description: "检测流程包含模型预测结果。" },
   supportsInspectionResult: { label: "支持检测结果", description: "模型预测结果支撑检测结果。" },
   hasModelCallLog: { label: "模型调用日志", description: "模型调用记录关联调用日志。" },
+  hasForecastHorizon: { label: "序列长度", description: "模型调用记录关联本次重构检测使用的输入序列长度。" },
+  predictsCurve: { label: "重构曲线", description: "模型检测结果关联输出的重构过程曲线。" },
   recordId: { label: "记录ID", description: "数据库过程记录的唯一标识。" },
   sourceTable: { label: "来源表", description: "记录来自哪张数据库表。" },
   timestamp: { label: "时间戳", description: "记录采集或发生时间。" },
@@ -329,11 +355,15 @@ const ontologyClasses: OntologyClassDescriptor[] = [
   cls("WarningReport", "WarningReport", "quality.owl", "Report", "Ontology-driven warning report."),
 
   cls("DetectionModel", "DetectionModel", "model.owl", "Service", "AI or rule model used by inspection."),
+  cls("TimeSeriesForecastModel", "TimeSeriesForecastModel", "model.owl", "DetectionModel", "Forecast model used for process curve prediction."),
   cls("ModelService", "ModelService", "model.owl", "Service", "Callable model service endpoint."),
   cls("ModelInvocation", "ModelInvocation", "model.owl", "TraceableEntity", "Concrete model call record."),
   cls("ModelInputTemplate", "ModelInputTemplate", "model.owl", "Entity", "Model input schema."),
   cls("ModelOutputTemplate", "ModelOutputTemplate", "model.owl", "Entity", "Model output schema."),
   cls("ModelPredictionResult", "ModelPredictionResult", "model.owl", "InspectionResult", "Prediction output from a model."),
+  cls("ForecastHorizon", "ForecastHorizon", "model.owl", "Entity", "Future point count or time span used by forecast inference."),
+  cls("PredictedCurve", "PredictedCurve", "model.owl", "CurveData", "Future or derived curve predicted by a model."),
+  cls("ForecastAnomalyEvent", "ForecastAnomalyEvent", "model.owl", "AnomalyEvent", "Anomaly event raised by predicted future curve risk."),
   cls("ModelCallLog", "ModelCallLog", "model.owl", "TraceableEntity", "Model call log and fallback status."),
 
   cls("SPRProcess", "SPRProcess", "spr.owl", "ManufacturingProcess", "SPR process extension."),
@@ -397,6 +427,8 @@ const ontologyProperties: OntologyPropertyDescriptor[] = [
   objectProp("hasPredictionResult", "hasPredictionResult", "InspectionProcess", "ModelPredictionResult", "model.owl"),
   objectProp("supportsInspectionResult", "supportsInspectionResult", "ModelPredictionResult", "InspectionResult", "model.owl"),
   objectProp("hasModelCallLog", "hasModelCallLog", "ModelInvocation", "ModelCallLog", "model.owl"),
+  objectProp("hasForecastHorizon", "hasForecastHorizon", "ModelInvocation", "ForecastHorizon", "model.owl"),
+  objectProp("predictsCurve", "predictsCurve", "ModelPredictionResult", "PredictedCurve", "model.owl"),
 
   dataProp("recordId", "recordId", "OnlineProcessRecord", "xsd:string", "process.owl"),
   dataProp("sourceTable", "sourceTable", "OnlineProcessRecord", "xsd:string", "process.owl"),

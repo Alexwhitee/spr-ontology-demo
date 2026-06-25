@@ -12,6 +12,8 @@ import {
   XCircle
 } from "lucide-react";
 import { OntologyGraph } from "../../components/OntologyGraph";
+import * as echarts from "echarts";
+import { Chart } from "../../components/Chart";
 import {
   analyzeRemoteRootCause,
   createRemoteWarningReport,
@@ -56,6 +58,7 @@ import { labelReviewStatus } from "../../i18n/zhCN";
 
 export type WorkbenchMode = "structure" | "rules" | "detect" | "root" | "report" | "knowledge";
 type RuleCandidate = RuleExtractionResponse["candidates"][number];
+type DetectionModelMode = "marpp" | "mock" | "llm";
 
 const modeItems: Array<{ key: WorkbenchMode; label: string; icon: typeof FileCode2 }> = [
   { key: "structure", label: "OWL2结构", icon: FileCode2 },
@@ -74,6 +77,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
   ), [dataset.records]);
   const [recordId, setRecordId] = useState(initialRecordId ?? defaultRecordId);
   const [detection, setDetection] = useState<DetectionResult | null>(null);
+  const [detectionModelMode, setDetectionModelMode] = useState<DetectionModelMode>("marpp");
   const [rootCause, setRootCause] = useState<RootCauseAnalysis | null>(null);
   const [report, setReport] = useState<WarningReport | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -156,7 +160,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
     setSelectedTraceKey("detect");
     setMode("detect");
     try {
-      const detectRequest = { recordId, includeCurveSummary: true };
+      const detectRequest = { recordId, modelMode: detectionModelMode, includeCurveSummary: true };
       const nextDetection = await runTrackedApiCall("detect", "检测 API", "/api/detect/run", detectRequest, () => runRemoteDetection(detectRequest));
       setDetection(nextDetection);
       setDetectionPhase("analyzing");
@@ -359,6 +363,14 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
             </div>
           )}
         </div>
+        <label className="model-mode-picker">
+          <span>检测模型</span>
+          <select value={detectionModelMode} onChange={(event) => setDetectionModelMode(event.target.value as DetectionModelMode)} aria-label="选择检测模型">
+            <option value="marpp">MARPP 重构检测</option>
+            <option value="mock">本体规则</option>
+            <option value="llm">LLM</option>
+          </select>
+        </label>
         <button type="button" className="primary-action" onClick={handleRunDetection} disabled={isDetecting || !recordId}>
           {isDetecting ? <Loader2 size={16} /> : <Activity size={16} />}
           {isDetecting ? "检测中" : "调用检测 API"}
@@ -439,6 +451,7 @@ export function Owl2WorkbenchView({ dataset, initialMode = "structure", initialR
           rootCause={rootCause}
           report={report}
           apiCalls={apiCalls}
+          modelMode={detectionModelMode}
           selectedTraceKey={selectedTraceKey}
           isRunning={isDetecting}
           error={detectError}
@@ -550,6 +563,7 @@ function DetectionPanel({
   rootCause,
   report,
   apiCalls,
+  modelMode,
   selectedTraceKey,
   isRunning,
   error,
@@ -563,6 +577,7 @@ function DetectionPanel({
   rootCause: RootCauseAnalysis | null;
   report: WarningReport | null;
   apiCalls: Partial<Record<DetectionApiCallKey, DetectionApiRuntimeCall>>;
+  modelMode: DetectionModelMode;
   selectedTraceKey: string;
   isRunning: boolean;
   error: string | null;
@@ -593,7 +608,7 @@ function DetectionPanel({
           <div>
             <span>输入</span>
             <strong>{recordId || "未选择记录"}</strong>
-            <p>系统把这条过程记录的原始字段、曲线摘要和本体路径发给 Worker，由 Worker 调用模型或规则服务。</p>
+            <p>系统把这条过程记录的原始字段、曲线摘要和本体路径发给 Worker，由 Worker 调用 {modelMode === "marpp" ? "MARPP 重构检测服务" : modelMode === "llm" ? "LLM 服务" : "本体规则"}。</p>
           </div>
           <button type="button" className="primary-action detect-run-button" onClick={onRun} disabled={isRunning || !recordId}>
             {isRunning ? <Loader2 size={18} /> : <Activity size={18} />}
@@ -720,6 +735,10 @@ function DetectionPanel({
               <div key={item}>{item}</div>
             ))}
           </div>
+          {detection?.reconstructionPrediction && <ReconstructionChart prediction={detection.reconstructionPrediction} />}
+          {detection?.modelDiagnostics?.fallbackReason && (
+            <p className="model-diagnostic">降级说明：{detection.modelDiagnostics.fallbackReason}</p>
+          )}
         </section>
 
         <section className="panel">
@@ -767,6 +786,58 @@ function DetectionPanel({
           {(report?.ontologyPath ?? detection?.ontologyPath ?? ["SPRProcessRecord", "SPRInspectionProcess", "DetectionModel", "ModelPredictionResult", "InspectionResult", "AnomalyEvent"]).map((item) => <span key={item}>{item}</span>)}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ReconstructionChart({ prediction }: { prediction: NonNullable<DetectionResult["reconstructionPrediction"]> }) {
+  const axis = prediction.inputCurve.map((_, index) => index);
+  const errorAxis = prediction.pointError.map((_, index) => index);
+  const isAbnormal = prediction.riskCategory === "abnormal";
+  const scoreOption = useMemo<echarts.EChartsOption>(() => ({
+    animation: false,
+    tooltip: { trigger: "axis" },
+    legend: { top: 0, data: ["原始曲线", "重构曲线"] },
+    grid: { left: 48, right: 18, top: 42, bottom: 24 },
+    xAxis: { type: "category", data: axis },
+    yAxis: { type: "value", scale: true },
+    series: [
+      { name: "原始曲线", type: "line", showSymbol: false, data: prediction.inputCurve },
+      { name: "重构曲线", type: "line", showSymbol: false, data: prediction.reconstructionCurve }
+    ]
+  }), [axis, prediction]);
+
+  const errorOption = useMemo<echarts.EChartsOption>(() => ({
+    animation: false,
+    tooltip: { trigger: "axis" },
+    grid: { left: 48, right: 18, top: 16, bottom: 24 },
+    xAxis: { type: "category", data: errorAxis },
+    yAxis: { type: "value", name: "逐点误差" },
+    series: [
+      {
+        name: "逐点误差",
+        type: "line",
+        showSymbol: false,
+        data: prediction.pointError,
+        areaStyle: { opacity: 0.15 }
+      }
+    ],
+    markLine: {
+      symbol: "none",
+      data: [{ yAxis: 0, lineStyle: { type: "dashed", color: "#94a3b8" } }]
+    }
+  }), [errorAxis, prediction]);
+
+  return (
+    <div className="marpp-reconstruction">
+      <div className="marpp-reconstruction-meta">
+        <span className={isAbnormal ? "meta-warn" : undefined}>异常分数 {Math.round(prediction.anomalyScore * 100)}%</span>
+        <span>阈值 {Math.round(prediction.threshold * 100)}%</span>
+        <span>风险 {prediction.riskCategory === "normal" ? "正常" : prediction.riskCategory === "abnormal" ? "异常" : "复核"}</span>
+        <span>{prediction.mode === "live" ? "实时推理" : prediction.mode === "cache" ? "缓存结果" : "降级预测"}</span>
+      </div>
+      <Chart option={scoreOption} className="marpp-chart" />
+      <Chart option={errorOption} className="marpp-chart marpp-chart-error" />
     </div>
   );
 }

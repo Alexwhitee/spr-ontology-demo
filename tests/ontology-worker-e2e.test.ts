@@ -117,6 +117,72 @@ describe("ontology Worker real API endpoints", () => {
     }), env);
     expect(((await detection.json()) as { prediction: { category: string } }).prediction.category).toBe("curve_below_envelope");
   });
+
+  it("uses MARPP service output when modelMode is marpp", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/spr-detect/detect")) {
+        return new Response(JSON.stringify({
+          recordId: "riprop-2",
+          modelName: "MARPP",
+          modelVersion: "spr-marpp-heuristic-v1",
+          mode: "live",
+          inputCurve: [1, 2, 3],
+          reconstructionCurve: [1.1, 2.1, 3.1],
+          pointError: [0.1, 0.1, 0.1],
+          anomalyScore: 0.83,
+          threshold: 0.5,
+          riskCategory: "abnormal",
+          confidence: 0.86,
+          evidence: ["MARPP 实时重构显示该曲线重构误差显著偏高，存在异常风险"],
+          durationMs: 9
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.includes("/data/curves/riprop-2.json")) {
+        return new Response(JSON.stringify({
+          id: "riprop-2",
+          curves: {
+            riveting: Array.from({ length: 120 }, (_, index) => index),
+            envelope: Array.from({ length: 120 }, () => 50)
+          }
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify(dataset), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }));
+
+    const response = await worker.fetch(jsonRequest("https://unit.test/api/detect/run", {
+      recordId: "riprop-2",
+      modelMode: "marpp",
+      includeCurveSummary: true
+    }), createApiEnv({ marpp: true }));
+
+    const body = await response.json() as { modelMode: string; prediction: { category: string; severity: string }; reconstructionPrediction?: { modelName: string; riskCategory: string }; modelDiagnostics?: { attemptedModelMode: string } };
+    expect(response.status).toBe(200);
+    expect(body.modelMode).toBe("marpp");
+    expect(body.prediction.severity).toBe("warning");
+    expect(body.reconstructionPrediction?.modelName).toBe("MARPP");
+    expect(body.reconstructionPrediction?.riskCategory).toBe("abnormal");
+    expect(body.modelDiagnostics?.attemptedModelMode).toBe("marpp");
+    expect(JSON.stringify(body)).not.toContain("marpp-secret");
+  });
+
+  it("falls back to ontology rules when MARPP service is unavailable", async () => {
+    stubDatasetFetch();
+    const response = await worker.fetch(jsonRequest("https://unit.test/api/detect/run", {
+      recordId: "riprop-2",
+      modelMode: "marpp",
+      includeCurveSummary: true
+    }), createApiEnv());
+
+    const body = await response.json() as { modelMode: string; prediction: { category: string }; modelDiagnostics?: { attemptedModelMode: string; fallbackReason?: string } };
+    expect(response.status).toBe(200);
+    expect(body.modelMode).toBe("mock");
+    expect(body.modelDiagnostics?.attemptedModelMode).toBe("marpp");
+    expect(body.modelDiagnostics?.fallbackReason).toContain("SPR_DETECTOR_API_BASE_URL");
+  });
 });
 
 function jsonRequest(url: string, body: unknown): Request {
@@ -142,10 +208,16 @@ function stubDatasetFetch() {
   })));
 }
 
-function createApiEnv() {
+function createApiEnv(options: { marpp?: boolean } = {}) {
   return {
     ALLOWED_ORIGIN: "*",
     ADMIN_TOKEN: "secret",
-    DATASET_URL: "https://unit.test/data/demo-dataset.json"
+    DATASET_URL: "https://unit.test/data/demo-dataset.json",
+    CURVE_BASE_URL: "https://unit.test/data/curves",
+    ...(options.marpp ? {
+      SPR_DETECTOR_API_BASE_URL: "https://marpp.unit.test",
+      SPR_DETECTOR_TIMEOUT_MS: "3000",
+      SPR_DETECTOR_API_KEY: "marpp-secret"
+    } : {})
   };
 }
